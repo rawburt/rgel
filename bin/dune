@@ -1,0 +1,4 @@
+(executable
+ (public_name rgel)
+ (name main)
+ (libraries rgel))
