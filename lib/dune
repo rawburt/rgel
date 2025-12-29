@@ -1,2 +1,10 @@
 (library
- (name rgel))
+ (name rgel)
+ (preprocess
+  (pps ppx_deriving.show))
+ (modules location parsed_ast grammar lexer errors))
+
+(menhir
+ (modules grammar))
+
+(ocamllex lexer)

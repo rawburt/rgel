@@ -8,8 +8,10 @@ license: "LICENSE"
 homepage: "https://github.com/rawburt/rgel"
 bug-reports: "https://github.com/rawburt/rgel/issues"
 depends: [
-  "dune" {>= "3.17"}
   "ocaml"
+  "dune" {>= "3.17"}
+  "menhir"
+  "ppx_deriving"
   "odoc" {with-doc}
 ]
 build: [

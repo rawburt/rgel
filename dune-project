@@ -1,5 +1,7 @@
 (lang dune 3.17)
 
+(using menhir 3.0)
+
 (name rgel)
 
 (generate_opam_files true)
@@ -17,4 +19,4 @@
  (name rgel)
  (synopsis "Robert's game engine language")
  (description "Robert's game engine language")
- (depends ocaml))
+ (depends ocaml dune menhir ppx_deriving))
