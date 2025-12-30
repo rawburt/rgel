@@ -2,6 +2,7 @@ let usage_msg = "rgel <file> -o <output-file>"
 let input_files = ref []
 let output_file = ref "out.js"
 let entry = ref "main"
+let quickjs = ref false
 let anon_fun filename = input_files := filename :: !input_files
 
 let speclist =
@@ -12,6 +13,7 @@ let speclist =
     ( "-entry",
       Arg.Set_string entry,
       Printf.sprintf "Specify entry function (default: %s)" !entry );
+    ("-quickjs", Arg.Set quickjs, "Use QuickJS runtime");
   ]
 
 let parse_file filename =
@@ -61,4 +63,7 @@ let () =
         let output_code = Rgel.Codegen.emit !entry parsed_module in
         let oc = open_out !output_file in
         output_string oc output_code;
-        close_out oc
+        close_out oc;
+        if !quickjs then
+          let _ = Sys.command (Printf.sprintf "qjs %s" !output_file) in
+          ()
