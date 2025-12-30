@@ -83,7 +83,8 @@ and load_def ctx def =
   let param_types = List.map snd translated_params in
   let return_type = Types.TUnit in
   let def_type = Types.TDef (param_types, return_type) in
-  { ctx with types = StringMap.add def.def_name def_type ctx.types }
+  let identifiers = StringMap.add def.def_name def_type ctx.identifiers in
+  { ctx with identifiers }
 
 and load_extern ctx extern =
   let param_types = List.map (translate_type ctx) extern.extern_params in
@@ -98,7 +99,7 @@ and load_toplevel ctx = function
   | Toplevel_def def -> load_def ctx def
   | Toplevel_extern extern -> load_extern ctx extern
 
-let check parsed_module =
+let check entry parsed_module =
   let initial_ctx =
     {
       types =
@@ -115,6 +116,8 @@ let check parsed_module =
   let ctx_with_types =
     List.fold_left load_toplevel initial_ctx parsed_module.module_toplevels
   in
+  if not (StringMap.mem entry ctx_with_types.identifiers) then
+    error (Errors.Entry_not_found entry) Location.none;
   let _ =
     List.iter (check_toplevel ctx_with_types) parsed_module.module_toplevels
   in

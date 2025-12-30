@@ -1,5 +1,5 @@
 extern log(str) unit = "console.log"
 
-def init() do
+def main() do
   log("hello")
 end

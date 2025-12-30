@@ -4,6 +4,7 @@ type syntax_error =
   | Unexpected_string_item
 
 type type_error =
+  | Entry_not_found of string
   | Type_not_found of string
   | Identifier_not_found of string
   | Not_a_function of Types.t
@@ -31,6 +32,8 @@ let show_error = function
   | Type_error (type_error, loc) ->
       let type_error_msg =
         match type_error with
+        | Entry_not_found name ->
+            Printf.sprintf "Entry function not found: %s" name
         | Type_not_found name -> Printf.sprintf "Type not found: %s" name
         | Identifier_not_found name ->
             Printf.sprintf "Identifier not found: %s" name

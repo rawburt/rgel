@@ -11,3 +11,14 @@ let string_of_loc t =
 
 let show t = string_of_loc t
 let pp fmt t = Format.fprintf fmt "%s" (string_of_loc t)
+
+let none =
+  let dummy_pos =
+    {
+      Lexing.pos_fname = "<unknown>";
+      Lexing.pos_lnum = 0;
+      Lexing.pos_bol = 0;
+      Lexing.pos_cnum = 0;
+    }
+  in
+  { loc_start = dummy_pos; loc_end = dummy_pos }

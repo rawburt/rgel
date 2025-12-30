@@ -4,6 +4,7 @@ type syntax_error =
   | Unexpected_string_item
 
 type type_error =
+  | Entry_not_found of string
   | Type_not_found of string
   | Identifier_not_found of string
   | Not_a_function of Types.t

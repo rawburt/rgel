@@ -1,7 +1,18 @@
-let usage_msg = "rgel <file>"
+let usage_msg = "rgel <file> -o <output-file>"
 let input_files = ref []
+let output_file = ref "out.js"
+let entry = ref "main"
 let anon_fun filename = input_files := filename :: !input_files
-let speclist = []
+
+let speclist =
+  [
+    ( "-o",
+      Arg.Set_string output_file,
+      Printf.sprintf "Specify output file (default: %s)" !output_file );
+    ( "-entry",
+      Arg.Set_string entry,
+      Printf.sprintf "Specify entry function (default: %s)" !entry );
+  ]
 
 let parse_file filename =
   let ic = open_in filename in
@@ -40,10 +51,14 @@ let () =
   else
     let input_file = List.hd !input_files in
     let parsed_module = parse_module input_file in
-    match Rgel.Type_check.check parsed_module with
+    match Rgel.Type_check.check !entry parsed_module with
     | Error errors ->
         List.iter
           (fun error -> print_endline (Rgel.Errors.show_error error))
           errors;
         exit 1
-    | Ok _ -> print_endline "ok"
+    | Ok _ ->
+        let output_code = Rgel.Codegen.emit !entry parsed_module in
+        let oc = open_out !output_file in
+        output_string oc output_code;
+        close_out oc
