@@ -17,7 +17,7 @@ let error msg lexbuf =
   let start_pos = lexbuf.lex_start_p in
   let current_pos = lexbuf.lex_curr_p in
   let loc = Location.make_loc (start_pos, current_pos) in
-  Errors.syntax_error msg loc
+  Errors.throw_syntax_error msg loc
 
 }
 
@@ -36,7 +36,7 @@ rule token = parse
   | ident as i    { kw_or_ident i }
   | integer as i  { INT_LITERAL (int_of_string i) }
   | eof           { EOF }
-  | _             { error ("unexpected character: " ^ (Lexing.lexeme lexbuf)) lexbuf }
+  | _             { error (Errors.Unexpected_token (Lexing.lexeme lexbuf)) lexbuf }
 and comment = parse
   | '\n'  { new_line lexbuf; token lexbuf }
   | _     { comment lexbuf }
@@ -44,5 +44,5 @@ and comment = parse
 and read_string buf = parse
   | '"'           { STRING_LITERAL (Buffer.contents buf) }
   | [^ '"' '\\']+ { Buffer.add_string buf (Lexing.lexeme lexbuf); read_string buf lexbuf }
-  | eof           { error "string not terminated" lexbuf }
-  | _             { error "unexpected string item" lexbuf }
+  | eof           { error Errors.String_not_terminated lexbuf }
+  | _             { error Errors.Unexpected_string_item lexbuf }

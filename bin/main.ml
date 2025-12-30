@@ -22,8 +22,8 @@ let parse_file filename =
         (Lexing.lexeme lexbuf);
       close_in ic;
       exit 1
-  | Rgel.Errors.CompilerError (msg, loc) ->
-      Printf.eprintf "%s: %s\n" (Rgel.Location.string_of_loc loc) msg;
+  | Rgel.Errors.CompilerError error ->
+      Printf.eprintf "%s\n" (Rgel.Errors.show_error error);
       close_in ic;
       exit 1
 
