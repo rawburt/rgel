@@ -6,15 +6,35 @@ open Parsed_ast
 %token <string> STRING_LITERAL
 %token <int> INT_LITERAL
 %token LPAREN RPAREN COMMA
+%token EQ
 %token TRUE FALSE
-%token DEF DO END
+%token DEF DO END EXTERN
 %token EOF
 
-%start <parsed_def list> module_defs
+%start <toplevel list> toplevels
 %%
 
-module_defs:
-| list(def) EOF { $1 }
+toplevels: list(toplevel) EOF { $1 }
+
+toplevel:
+| def { Toplevel_def $1 }
+| extern { Toplevel_extern $1 }
+
+parsed_type: type_desc { { type_desc = $1; type_loc = Location.make_loc $loc; } }
+type_desc:
+| IDENT { Type_name $1 }
+
+extern:
+| EXTERN ident=IDENT LPAREN params=separated_list(COMMA, parsed_type) RPAREN return_type=parsed_type EQ foreign_name=STRING_LITERAL
+  {
+    {
+      extern_name = ident;
+      extern_params = params;
+      extern_return_type = return_type;
+      extern_foreign_name = foreign_name;
+      extern_loc = Location.make_loc $loc;
+    }
+  }
 
 def:
 | DEF ident=IDENT LPAREN RPAREN DO body=block END

@@ -43,5 +43,20 @@ type parsed_def = {
 }
 [@@deriving show]
 
-type parsed_module = { module_name : identifier; module_defs : parsed_def list }
+type parsed_extern = {
+  extern_name : identifier;
+  extern_params : parsed_type list;
+  extern_return_type : parsed_type;
+  extern_foreign_name : string;
+  extern_loc : Location.t;
+}
+[@@deriving show]
+
+type toplevel = Toplevel_def of parsed_def | Toplevel_extern of parsed_extern
+[@@deriving show]
+
+type parsed_module = {
+  module_name : identifier;
+  module_toplevels : toplevel list;
+}
 [@@deriving show]

@@ -8,7 +8,7 @@ let parse_file filename =
   let lexbuf = Lexing.from_channel ic in
   Lexing.set_filename lexbuf filename;
   try
-    let ast = Rgel.Grammar.module_defs Rgel.Lexer.token lexbuf in
+    let ast = Rgel.Grammar.toplevels Rgel.Lexer.token lexbuf in
     close_in ic;
     ast
   with
@@ -29,8 +29,8 @@ let parse_file filename =
 
 let parse_module filename =
   let module_name = Filename.basename filename |> Filename.remove_extension in
-  let module_defs = parse_file filename in
-  Rgel.Parsed_ast.{ module_name; module_defs }
+  let module_toplevels = parse_file filename in
+  Rgel.Parsed_ast.{ module_name; module_toplevels }
 
 let () =
   Arg.parse speclist anon_fun usage_msg;
@@ -40,4 +40,10 @@ let () =
   else
     let input_file = List.hd !input_files in
     let parsed_module = parse_module input_file in
-    print_endline (Rgel.Parsed_ast.show_parsed_module parsed_module)
+    match Rgel.Type_check.check parsed_module with
+    | Error errors ->
+        List.iter
+          (fun error -> print_endline (Rgel.Errors.show_error error))
+          errors;
+        exit 1
+    | Ok _ -> print_endline "ok"

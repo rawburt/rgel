@@ -9,6 +9,7 @@ let keywords = [
   ("def", DEF);
   ("do", DO);
   ("end", END);
+  ("extern", EXTERN);
 ]
 
 let kw_or_ident s = try List.assoc s keywords with Not_found -> IDENT s
@@ -33,6 +34,7 @@ rule token = parse
   | '('           { LPAREN }
   | ')'           { RPAREN }
   | ','           { COMMA }
+  | '='           { EQ }
   | ident as i    { kw_or_ident i }
   | integer as i  { INT_LITERAL (int_of_string i) }
   | eof           { EOF }
