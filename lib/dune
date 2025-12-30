@@ -2,7 +2,16 @@
  (name rgel)
  (preprocess
   (pps ppx_deriving.show))
- (modules location parsed_ast grammar lexer errors type_check types codegen))
+ (modules
+  debug
+  location
+  parsed_ast
+  grammar
+  lexer
+  errors
+  type_check
+  types
+  codegen))
 
 (menhir
  (modules grammar))

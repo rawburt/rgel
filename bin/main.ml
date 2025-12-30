@@ -14,6 +14,7 @@ let speclist =
       Arg.Set_string entry,
       Printf.sprintf "Specify entry function (default: %s)" !entry );
     ("-quickjs", Arg.Set quickjs, "Use QuickJS runtime");
+    ("-trace", Arg.Set Rgel.Debug.trace, "Enable trace output");
   ]
 
 let parse_file filename =
@@ -64,6 +65,7 @@ let () =
         let oc = open_out !output_file in
         output_string oc output_code;
         close_out oc;
+        flush_all ();
         if !quickjs then
           let _ = Sys.command (Printf.sprintf "qjs %s" !output_file) in
           ()

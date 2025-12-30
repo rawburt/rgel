@@ -10,6 +10,7 @@ let keywords = [
   ("do", DO);
   ("end", END);
   ("extern", EXTERN);
+  ("rec", REC);
 ]
 
 let kw_or_ident s = try List.assoc s keywords with Not_found -> IDENT s

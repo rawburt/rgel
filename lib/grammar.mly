@@ -10,7 +10,7 @@ open Parsed_ast
 %token LBRACKET RBRACKET
 %token EQ PLUS MINUS STAR SLASH EQEQ
 %token TRUE FALSE
-%token DEF DO END EXTERN
+%token DEF DO END EXTERN REC
 %token EOF
 
 %nonassoc EQEQ
@@ -26,6 +26,7 @@ toplevels: list(toplevel) EOF { $1 }
 toplevel:
 | def { Toplevel_def $1 }
 | extern { Toplevel_extern $1 }
+| record { Toplevel_rec $1 }
 
 parsed_type: type_desc { { type_desc = $1; type_loc = Location.make_loc $loc; } }
 type_desc:
@@ -69,6 +70,25 @@ def_param:
     }
   }
 
+record: REC rec_name=TIDENT DO rec_fields=list(rec_field) END
+  {
+    {
+      rec_name;
+      rec_fields;
+      rec_loc = Location.make_loc $loc;
+    }
+  }
+
+rec_field:
+| field_name=IDENT COLON field_type=parsed_type
+  {
+    {
+      field_name;
+      field_type;
+      field_loc = Location.make_loc $loc;
+    }
+  }
+
 block: list(statement)
   {
     {
@@ -86,6 +106,8 @@ expr_desc:
 | literal { Expr_literal $1 }
 | IDENT { Expr_ident $1 }
 | call_expr { Expr_call $1 }
+| rec_type_name=TIDENT LPAREN rec_fields=separated_list(COMMA, rec_field_expr) RPAREN
+  { Expr_rec { rec_type_name; rec_fields; } }
 | expr binary_operator expr
   {
     Expr_binary_op {
@@ -102,6 +124,12 @@ call_expr:
       call_def = def_expr;
       call_args = args;
     }
+  }
+
+rec_field_expr:
+| field_name=IDENT COLON field_value=expr
+  {
+    (field_name, field_value)
   }
 
 %inline binary_operator:

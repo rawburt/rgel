@@ -9,6 +9,8 @@ type type_error =
   | Identifier_not_found of string
   | Not_a_function of Types.t
   | Type_mismatch of Types.t * Types.t
+  | Redeclared_identifier of string
+  | Not_a_record of Types.t
 
 type error =
   | Syntax_error of syntax_error * Location.t
@@ -43,5 +45,9 @@ let show_error = function
         | Type_mismatch (t1, t2) ->
             Printf.sprintf "Type mismatch: %s vs %s" (Types.show t1)
               (Types.show t2)
+        | Redeclared_identifier name ->
+            Printf.sprintf "Redeclared identifier: %s" name
+        | Not_a_record t ->
+            Printf.sprintf "Expected a record type, but got: %s" (Types.show t)
       in
       Printf.sprintf "%s %s" (error_prefix loc) type_error_msg

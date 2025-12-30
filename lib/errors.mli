@@ -9,6 +9,8 @@ type type_error =
   | Identifier_not_found of string
   | Not_a_function of Types.t
   | Type_mismatch of Types.t * Types.t
+  | Redeclared_identifier of string
+  | Not_a_record of Types.t
 
 type error =
   | Syntax_error of syntax_error * Location.t

@@ -28,6 +28,10 @@ and expr_desc =
       binop_operator : binary_operator;
       binop_right : parsed_expr;
     }
+  | Expr_rec of {
+      rec_type_name : identifier;
+      rec_fields : (identifier * parsed_expr) list;
+    }
 [@@deriving show]
 
 and call_expr = { call_def : parsed_expr; call_args : parsed_expr list }
@@ -66,7 +70,24 @@ type parsed_extern = {
 }
 [@@deriving show]
 
-type toplevel = Toplevel_def of parsed_def | Toplevel_extern of parsed_extern
+type rec_field = {
+  field_name : identifier;
+  field_type : parsed_type;
+  field_loc : Location.t;
+}
+[@@deriving show]
+
+type parsed_rec = {
+  rec_name : identifier;
+  rec_fields : rec_field list;
+  rec_loc : Location.t;
+}
+[@@deriving show]
+
+type toplevel =
+  | Toplevel_def of parsed_def
+  | Toplevel_extern of parsed_extern
+  | Toplevel_rec of parsed_rec
 [@@deriving show]
 
 type parsed_module = {

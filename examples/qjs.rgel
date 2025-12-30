@@ -1,11 +1,18 @@
 extern def log(str) unit = "console.log"
-extern def str[T](T) str = "String"
-
-def debug(m: str) do
-  log(m)
-end
+extern def str[T](T) str = "JSON.stringify"
 
 def main() do
   debug("OK: " + "test = " + str(2))
   debug(str("asd" == "asd"))
+  debug(str(Vec(x: 100, y: 20) == Vec(x: 100, y: 20)))
+end
+
+# order doesn't matter
+rec Vec do
+  x: int
+  y: int
+end
+
+def debug(m: str) do
+  log(m)
 end
