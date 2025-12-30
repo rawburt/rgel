@@ -5,5 +5,5 @@ def debug(m: str) do
 end
 
 def main() do
-  debug("OK")
+  debug("OK: " + "test = " + "2")
 end

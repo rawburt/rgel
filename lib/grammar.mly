@@ -6,10 +6,14 @@ open Parsed_ast
 %token <string> STRING_LITERAL
 %token <int> INT_LITERAL
 %token LPAREN RPAREN COMMA COLON
-%token EQ
+%token EQ PLUS MINUS STAR SLASH
 %token TRUE FALSE
 %token DEF DO END EXTERN
 %token EOF
+
+%left PLUS MINUS
+%left STAR SLASH
+%nonassoc LPAREN
 
 %start <toplevel list> toplevels
 %%
@@ -74,6 +78,14 @@ expr_desc:
 | literal { Expr_literal $1 }
 | IDENT { Expr_ident $1 }
 | call_expr { Expr_call $1 }
+| expr binary_operator expr
+  {
+    Expr_binary_op {
+      binop_left = $1;
+      binop_operator = $2;
+      binop_right = $3;
+    }
+  }
 
 call_expr:
 | def_expr=expr LPAREN args=separated_list(COMMA, expr) RPAREN
@@ -83,6 +95,12 @@ call_expr:
       call_args = args;
     }
   }
+
+%inline binary_operator:
+| PLUS { Binop_add }
+| MINUS { Binop_sub }
+| STAR { Binop_mul }
+| SLASH { Binop_div }
 
 literal:
 | INT_LITERAL { Lit_int $1 }

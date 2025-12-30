@@ -36,6 +36,10 @@ rule token = parse
   | ','           { COMMA }
   | ':'           { COLON }
   | '='           { EQ }
+  | '+'           { PLUS }
+  | '-'           { MINUS }
+  | '*'           { STAR }
+  | '/'           { SLASH }
   | ident as i    { kw_or_ident i }
   | integer as i  { INT_LITERAL (int_of_string i) }
   | eof           { EOF }

@@ -51,6 +51,21 @@ let rec check_expr ctx expr =
           error (Errors.Identifier_not_found ident) expr.expr_loc;
           Types.TVar (ref None))
   | Expr_call call_expr -> check_call_expr call_expr
+  | Expr_binary_op { binop_left; binop_operator; binop_right } -> (
+      let left_type = check_expr ctx binop_left in
+      let right_type = check_expr ctx binop_right in
+      match binop_operator with
+      | Binop_add ->
+          let expected_type =
+            match left_type with Types.TStr -> Types.TStr | _ -> Types.TInt
+          in
+          unification expr.expr_loc left_type expected_type;
+          unification expr.expr_loc right_type expected_type;
+          expected_type
+      | Binop_sub | Binop_mul | Binop_div ->
+          unification expr.expr_loc left_type Types.TInt;
+          unification expr.expr_loc right_type Types.TInt;
+          Types.TInt)
 
 and check_stmt ctx stmt =
   match stmt.stmt_desc with

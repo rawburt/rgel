@@ -6,13 +6,28 @@ let emit_literal = function
   | Lit_int i -> string_of_int i
   | Lit_string s -> Printf.sprintf "\"%s\"" s
 
-let rec emit_expr ffi_map = function
-  | { expr_desc = Expr_literal lit; _ } -> emit_literal lit
-  | { expr_desc = Expr_ident ident; _ } -> (
+let rec emit_expr ffi_map expr =
+  match expr.expr_desc with
+  | Expr_literal lit -> emit_literal lit
+  | Expr_ident ident -> (
       match StringMap.find_opt ident ffi_map with
       | Some foreign_name -> foreign_name
       | None -> ident)
-  | { expr_desc = Expr_call call; _ } -> emit_call_expr ffi_map call
+  | Expr_call call -> emit_call_expr ffi_map call
+  | Expr_binary_op { binop_left; binop_operator; binop_right } -> (
+      let left_str = emit_expr ffi_map binop_left in
+      let right_str = emit_expr ffi_map binop_right in
+      let operator_str =
+        match binop_operator with
+        | Binop_add -> "+"
+        | Binop_sub -> "-"
+        | Binop_mul -> "*"
+        | Binop_div -> "/"
+      in
+      match binop_operator with
+      | Binop_div ->
+          Printf.sprintf "Math.floor(%s %s %s)" left_str operator_str right_str
+      | _ -> Printf.sprintf "(%s %s %s)" left_str operator_str right_str)
 
 and emit_call_expr ffi_map { call_def; call_args } =
   let def_str = emit_expr ffi_map call_def in
