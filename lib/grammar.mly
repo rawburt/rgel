@@ -6,16 +6,17 @@ open Parsed_ast
 %token <string> TIDENT
 %token <string> STRING_LITERAL
 %token <int> INT_LITERAL
-%token LPAREN RPAREN COMMA COLON
+%token DOT LPAREN RPAREN COMMA COLON
 %token LBRACKET RBRACKET
 %token EQ PLUS MINUS STAR SLASH EQEQ
 %token TRUE FALSE
-%token DEF DO END EXTERN REC
+%token DEF DO END EXTERN REC VAR
 %token EOF
 
 %nonassoc EQEQ
 %left PLUS MINUS
 %left STAR SLASH
+%left DOT
 %nonassoc LPAREN
 
 %start <toplevel list> toplevels
@@ -100,12 +101,20 @@ block: list(statement)
 statement: statement_desc { { stmt_desc = $1; stmt_loc = Location.make_loc $loc; } }
 statement_desc:
 | expr { Stmt_expr $1 }
+| VAR var_name=IDENT COLON var_type=parsed_type EQ var_value=expr
+  {
+    Stmt_var {
+      var_name;
+      var_type;
+      var_value;
+    }
+  }
 
 expr: expr_desc { { expr_desc = $1; expr_loc = Location.make_loc $loc; } }
 expr_desc:
 | literal { Expr_literal $1 }
 | IDENT { Expr_ident $1 }
-| call_expr { Expr_call $1 }
+| postfix_expr { $1 }
 | rec_type_name=TIDENT LPAREN rec_fields=separated_list(COMMA, rec_field_expr) RPAREN
   { Expr_rec { rec_type_name; rec_fields; } }
 | expr binary_operator expr
@@ -114,6 +123,16 @@ expr_desc:
       binop_left = $1;
       binop_operator = $2;
       binop_right = $3;
+    }
+  }
+
+postfix_expr:
+| call_expr { Expr_call $1 }
+| member_object=expr DOT member_name=IDENT
+  {
+    Expr_member_access {
+      member_object;
+      member_name;
     }
   }
 

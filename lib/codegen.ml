@@ -42,11 +42,23 @@ let rec emit_expr ffi_map expr =
           Printf.sprintf "globalThis.runtime.deepEqual(%s, %s)" left_str
             right_str
       | _ -> Printf.sprintf "(%s %s %s)" left_str operator_str right_str)
+  | Expr_member_access { member_object; member_name } ->
+      let object_str = emit_expr ffi_map member_object in
+      Printf.sprintf "%s.%s" object_str member_name
 
 and emit_call_expr ffi_map { call_def; call_args } =
   let def_str = emit_expr ffi_map call_def in
   let args_str = List.map (emit_expr ffi_map) call_args |> String.concat ", " in
   Printf.sprintf "%s(%s)" def_str args_str
+
+and emit_stmt ffi_map stmt =
+  match stmt.stmt_desc with
+  | Stmt_expr expr ->
+      let expr_str = emit_expr ffi_map expr in
+      Printf.sprintf "%s;" expr_str
+  | Stmt_var { var_name; var_value; _ } ->
+      let value_str = emit_expr ffi_map var_value in
+      Printf.sprintf "let %s = %s;" var_name value_str
 
 let emit_def ffi_map def =
   let params_str =
@@ -54,13 +66,9 @@ let emit_def ffi_map def =
     |> String.concat ", "
   in
   let body_stmts =
-    List.map
-      (fun stmt ->
-        match stmt.stmt_desc with
-        | Stmt_expr expr -> emit_expr ffi_map expr ^ ";")
-      def.def_body.block_stmts
+    List.map (fun stmt -> emit_stmt ffi_map stmt) def.def_body.block_stmts
   in
-  let body_str = String.concat "\n  " body_stmts in
+  let body_str = String.concat ";\n  " body_stmts in
   Printf.sprintf "function %s(%s) {\n  %s\n}" def.def_name params_str body_str
 
 let emit_toplevel ffi_map = function

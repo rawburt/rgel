@@ -62,6 +62,21 @@ let rec check_expr ctx expr =
         error (Errors.Type_not_found rec_type_name) expr.expr_loc;
         Types.fresh_var ()
   in
+  let check_member_access member_object member_name =
+    let object_type = check_expr ctx member_object in
+    match object_type with
+    | Types.TRec (_rec_name, fields_ref) -> (
+        match List.assoc_opt member_name !fields_ref with
+        | Some field_type -> field_type
+        | None ->
+            error
+              (Errors.Record_field_not_found (member_name, object_type))
+              expr.expr_loc;
+            Types.fresh_var ())
+    | _ ->
+        error (Errors.Not_a_record object_type) expr.expr_loc;
+        Types.fresh_var ()
+  in
   match expr.expr_desc with
   | Expr_literal lit -> check_literal lit
   | Expr_ident ident -> (
@@ -91,12 +106,24 @@ let rec check_expr ctx expr =
       | Binop_eq ->
           unification expr.expr_loc left_type right_type;
           Types.TBool)
+  | Expr_member_access { member_object; member_name } ->
+      check_member_access member_object member_name
 
 and check_stmt ctx stmt =
   match stmt.stmt_desc with
   | Stmt_expr expr ->
       let _ = check_expr ctx expr in
       ctx
+  | Stmt_var { var_name; var_type; var_value } ->
+      if StringMap.mem var_name ctx.identifiers then
+        error (Errors.Redeclared_identifier var_name) stmt.stmt_loc;
+      let translated_type = translate_type ctx var_type in
+      let value_type = check_expr ctx var_value in
+      unification stmt.stmt_loc translated_type value_type;
+      let identifiers =
+        StringMap.add var_name translated_type ctx.identifiers
+      in
+      { ctx with identifiers }
 
 and check_block ctx block = List.fold_left check_stmt ctx block.block_stmts
 

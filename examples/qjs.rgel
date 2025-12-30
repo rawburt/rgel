@@ -2,9 +2,12 @@ extern def log(str) unit = "console.log"
 extern def str[T](T) str = "JSON.stringify"
 
 def main() do
-  debug("OK: " + "test = " + str(2))
+  debug("OK: " + "test (2) = " + str(2))
   debug(str("asd" == "asd"))
   debug(str(Vec(x: 100, y: 20) == Vec(x: 100, y: 20)))
+  var v: Vec = Vec(y: 20, x: 50)
+  debug("v.x (50) = " + str(v.x))
+  debug("v.y (20) = " + str(v.y))
 end
 
 # order doesn't matter

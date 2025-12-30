@@ -32,6 +32,10 @@ and expr_desc =
       rec_type_name : identifier;
       rec_fields : (identifier * parsed_expr) list;
     }
+  | Expr_member_access of {
+      member_object : parsed_expr;
+      member_name : identifier;
+    }
 [@@deriving show]
 
 and call_expr = { call_def : parsed_expr; call_args : parsed_expr list }
@@ -40,7 +44,14 @@ and call_expr = { call_def : parsed_expr; call_args : parsed_expr list }
 type parsed_stmt = { stmt_desc : stmt_desc; stmt_loc : Location.t }
 [@@deriving show]
 
-and stmt_desc = Stmt_expr of parsed_expr [@@deriving show]
+and stmt_desc =
+  | Stmt_expr of parsed_expr
+  | Stmt_var of {
+      var_name : identifier;
+      var_type : parsed_type;
+      var_value : parsed_expr;
+    }
+[@@deriving show]
 
 type parsed_block = { block_stmts : parsed_stmt list; block_loc : Location.t }
 [@@deriving show]

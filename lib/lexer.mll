@@ -11,6 +11,7 @@ let keywords = [
   ("end", END);
   ("extern", EXTERN);
   ("rec", REC);
+  ("var", VAR);
 ]
 
 let kw_or_ident s = try List.assoc s keywords with Not_found -> IDENT s
@@ -33,6 +34,7 @@ rule token = parse
   | '#'           { comment lexbuf }
   | '\n'          { new_line lexbuf; token lexbuf }
   | '"'           { read_string (Buffer.create 16) lexbuf }
+  | '.'           { DOT }
   | '('           { LPAREN }
   | ')'           { RPAREN }
   | '['           { LBRACKET }

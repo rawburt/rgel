@@ -11,6 +11,7 @@ type type_error =
   | Type_mismatch of Types.t * Types.t
   | Redeclared_identifier of string
   | Not_a_record of Types.t
+  | Record_field_not_found of string * Types.t
 
 type error =
   | Syntax_error of syntax_error * Location.t
