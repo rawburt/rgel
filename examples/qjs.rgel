@@ -1,4 +1,4 @@
-extern log(str) unit = "console.log"
+extern def log(str) unit = "console.log"
 
 def debug(m: str) do
   log(m)

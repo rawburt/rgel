@@ -25,7 +25,7 @@ type_desc:
 | IDENT { Type_name $1 }
 
 extern:
-| EXTERN ident=IDENT LPAREN params=separated_list(COMMA, parsed_type) RPAREN return_type=parsed_type EQ foreign_name=STRING_LITERAL
+| EXTERN DEF ident=IDENT LPAREN params=separated_list(COMMA, parsed_type) RPAREN return_type=parsed_type EQ foreign_name=STRING_LITERAL
   {
     {
       extern_name = ident;
