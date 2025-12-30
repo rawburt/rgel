@@ -65,7 +65,10 @@ let rec check_expr ctx expr =
       | Binop_sub | Binop_mul | Binop_div ->
           unification expr.expr_loc left_type Types.TInt;
           unification expr.expr_loc right_type Types.TInt;
-          Types.TInt)
+          Types.TInt
+      | Binop_eq ->
+          unification expr.expr_loc left_type right_type;
+          Types.TBool)
 
 and check_stmt ctx stmt =
   match stmt.stmt_desc with

@@ -23,6 +23,7 @@ let rec emit_expr ffi_map expr =
         | Binop_sub -> "-"
         | Binop_mul -> "*"
         | Binop_div -> "/"
+        | Binop_eq -> "==="
       in
       match binop_operator with
       | Binop_div ->

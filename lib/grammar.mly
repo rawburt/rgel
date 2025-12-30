@@ -8,11 +8,12 @@ open Parsed_ast
 %token <int> INT_LITERAL
 %token LPAREN RPAREN COMMA COLON
 %token LBRACKET RBRACKET
-%token EQ PLUS MINUS STAR SLASH
+%token EQ PLUS MINUS STAR SLASH EQEQ
 %token TRUE FALSE
 %token DEF DO END EXTERN
 %token EOF
 
+%nonassoc EQEQ
 %left PLUS MINUS
 %left STAR SLASH
 %nonassoc LPAREN
@@ -108,6 +109,7 @@ call_expr:
 | MINUS { Binop_sub }
 | STAR { Binop_mul }
 | SLASH { Binop_div }
+| EQEQ { Binop_eq }
 
 literal:
 | INT_LITERAL { Lit_int $1 }

@@ -7,4 +7,5 @@ end
 
 def main() do
   debug("OK: " + "test = " + str(2))
+  debug(str("asd" == "asd"))
 end

@@ -5,7 +5,12 @@ type parsed_type = { type_desc : type_desc; type_loc : Location.t }
 
 and type_desc = Type_name of identifier [@@deriving show]
 
-type binary_operator = Binop_add | Binop_sub | Binop_mul | Binop_div
+type binary_operator =
+  | Binop_add
+  | Binop_sub
+  | Binop_mul
+  | Binop_div
+  | Binop_eq
 [@@deriving show]
 
 type literal = Lit_bool of bool | Lit_int of int | Lit_string of string

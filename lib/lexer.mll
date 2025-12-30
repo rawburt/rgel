@@ -43,6 +43,7 @@ rule token = parse
   | '-'           { MINUS }
   | '*'           { STAR }
   | '/'           { SLASH }
+  | "=="          { EQEQ }
   | ident as i    { kw_or_ident i }
   | tident as t   { TIDENT t }
   | integer as i  { INT_LITERAL (int_of_string i) }
