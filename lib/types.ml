@@ -5,6 +5,7 @@ type t =
   | TStr
   | TDef of t list * t
   | TVar of t option ref
+  | TParam of string
 
 let show ty =
   let tbl = Hashtbl.create 16 in
@@ -26,8 +27,33 @@ let show ty =
             let n = !counter in
             Hashtbl.add tbl r n;
             Printf.sprintf "$%d" n)
+    | TParam name -> name
   in
   show_aux ty
+
+let instantiate ty =
+  let tbl = Hashtbl.create 8 in
+  let rec aux ty =
+    match ty with
+    | TUnit -> TUnit
+    | TBool -> TBool
+    | TInt -> TInt
+    | TStr -> TStr
+    | TDef (arg_types, return_type) ->
+        let new_args = List.map aux arg_types in
+        let new_return = aux return_type in
+        TDef (new_args, new_return)
+    | TVar { contents = None } -> TVar (ref None)
+    | TVar { contents = Some t } -> aux t
+    | TParam name -> (
+        match Hashtbl.find_opt tbl name with
+        | Some tv -> tv
+        | None ->
+            let tv = TVar (ref None) in
+            Hashtbl.add tbl name tv;
+            tv)
+  in
+  aux ty
 
 let rec final_ty ty =
   match ty with

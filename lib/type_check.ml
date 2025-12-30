@@ -46,7 +46,7 @@ let rec check_expr ctx expr =
   | Expr_literal lit -> check_literal lit
   | Expr_ident ident -> (
       match StringMap.find_opt ident ctx.identifiers with
-      | Some t -> t
+      | Some t -> Types.instantiate t
       | None ->
           error (Errors.Identifier_not_found ident) expr.expr_loc;
           Types.TVar (ref None))
@@ -102,8 +102,18 @@ and load_def ctx def =
   { ctx with identifiers }
 
 and load_extern ctx extern =
-  let param_types = List.map (translate_type ctx) extern.extern_params in
-  let return_type = translate_type ctx extern.extern_return_type in
+  let types_with_params =
+    List.fold_left
+      (fun acc name -> StringMap.add name (Types.TParam name) acc)
+      ctx.types extern.extern_type_params
+  in
+  let ctx_with_type_params = { ctx with types = types_with_params } in
+  let param_types =
+    List.map (translate_type ctx_with_type_params) extern.extern_params
+  in
+  let return_type =
+    translate_type ctx_with_type_params extern.extern_return_type
+  in
   let extern_type = Types.TDef (param_types, return_type) in
   let identifiers =
     StringMap.add extern.extern_name extern_type ctx.identifiers

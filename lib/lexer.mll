@@ -23,6 +23,7 @@ let error msg lexbuf =
 }
 
 let ident = ['a'-'z' '_']['a'-'z' 'A'-'Z' '_' '0'-'9']*
+let tident = ['A'-'Z']['a'-'z' 'A'-'Z' '_' '0'-'9']*
 let integer = ['0'-'9']+
 let ws = [' ' '\t' '\r']+
 
@@ -33,6 +34,8 @@ rule token = parse
   | '"'           { read_string (Buffer.create 16) lexbuf }
   | '('           { LPAREN }
   | ')'           { RPAREN }
+  | '['           { LBRACKET }
+  | ']'           { RBRACKET }
   | ','           { COMMA }
   | ':'           { COLON }
   | '='           { EQ }
@@ -41,6 +44,7 @@ rule token = parse
   | '*'           { STAR }
   | '/'           { SLASH }
   | ident as i    { kw_or_ident i }
+  | tident as t   { TIDENT t }
   | integer as i  { INT_LITERAL (int_of_string i) }
   | eof           { EOF }
   | _             { error (Errors.Unexpected_token (Lexing.lexeme lexbuf)) lexbuf }

@@ -1,9 +1,10 @@
 extern def log(str) unit = "console.log"
+extern def str[T](T) str = "String"
 
 def debug(m: str) do
   log(m)
 end
 
 def main() do
-  debug("OK: " + "test = " + "2")
+  debug("OK: " + "test = " + str(2))
 end

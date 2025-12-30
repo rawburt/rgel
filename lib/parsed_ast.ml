@@ -53,6 +53,7 @@ type parsed_def = {
 
 type parsed_extern = {
   extern_name : identifier;
+  extern_type_params : identifier list;
   extern_params : parsed_type list;
   extern_return_type : parsed_type;
   extern_foreign_name : string;

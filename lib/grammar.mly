@@ -3,9 +3,11 @@ open Parsed_ast
 %}
 
 %token <string> IDENT
+%token <string> TIDENT
 %token <string> STRING_LITERAL
 %token <int> INT_LITERAL
 %token LPAREN RPAREN COMMA COLON
+%token LBRACKET RBRACKET
 %token EQ PLUS MINUS STAR SLASH
 %token TRUE FALSE
 %token DEF DO END EXTERN
@@ -27,15 +29,20 @@ toplevel:
 parsed_type: type_desc { { type_desc = $1; type_loc = Location.make_loc $loc; } }
 type_desc:
 | IDENT { Type_name $1 }
+| TIDENT { Type_name $1 }
+
+type_params: option(type_params_desc) { Option.value $1 ~default:[] }
+type_params_desc: LBRACKET params=separated_list(COMMA, TIDENT) RBRACKET { params }
 
 extern:
-| EXTERN DEF ident=IDENT LPAREN params=separated_list(COMMA, parsed_type) RPAREN return_type=parsed_type EQ foreign_name=STRING_LITERAL
+| EXTERN DEF extern_name=IDENT extern_type_params=type_params LPAREN extern_params=separated_list(COMMA, parsed_type) RPAREN extern_return_type=parsed_type EQ extern_foreign_name=STRING_LITERAL
   {
     {
-      extern_name = ident;
-      extern_params = params;
-      extern_return_type = return_type;
-      extern_foreign_name = foreign_name;
+      extern_name;
+      extern_type_params;
+      extern_params;
+      extern_return_type;
+      extern_foreign_name;
       extern_loc = Location.make_loc $loc;
     }
   }
