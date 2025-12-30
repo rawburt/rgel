@@ -51,6 +51,7 @@ and stmt_desc =
       var_type : parsed_type;
       var_value : parsed_expr;
     }
+  | Stmt_return of parsed_expr
 [@@deriving show]
 
 type parsed_block = { block_stmts : parsed_stmt list; block_loc : Location.t }
@@ -66,6 +67,7 @@ type def_param = {
 type parsed_def = {
   def_name : identifier;
   def_params : def_param list;
+  def_return_type : parsed_type;
   def_body : parsed_block;
   def_loc : Location.t;
 }

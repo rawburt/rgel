@@ -59,6 +59,9 @@ and emit_stmt ffi_map stmt =
   | Stmt_var { var_name; var_value; _ } ->
       let value_str = emit_expr ffi_map var_value in
       Printf.sprintf "let %s = %s;" var_name value_str
+  | Stmt_return expr ->
+      let expr_str = emit_expr ffi_map expr in
+      Printf.sprintf "return %s;" expr_str
 
 let emit_def ffi_map def =
   let params_str =
@@ -68,7 +71,7 @@ let emit_def ffi_map def =
   let body_stmts =
     List.map (fun stmt -> emit_stmt ffi_map stmt) def.def_body.block_stmts
   in
-  let body_str = String.concat ";\n  " body_stmts in
+  let body_str = String.concat "\n  " body_stmts in
   Printf.sprintf "function %s(%s) {\n  %s\n}" def.def_name params_str body_str
 
 let emit_toplevel ffi_map = function

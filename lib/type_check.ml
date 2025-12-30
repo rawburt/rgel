@@ -6,6 +6,7 @@ let errors = ref []
 type context = {
   types : Types.t StringMap.t;
   identifiers : Types.t StringMap.t;
+  return_type : Types.t option;
 }
 
 let error error loc = errors := Errors.Type_error (error, loc) :: !errors
@@ -124,6 +125,12 @@ and check_stmt ctx stmt =
         StringMap.add var_name translated_type ctx.identifiers
       in
       { ctx with identifiers }
+  | Stmt_return expr ->
+      let expr_type = check_expr ctx expr in
+      (match ctx.return_type with
+      | Some expected_type -> unification stmt.stmt_loc expected_type expr_type
+      | None -> error Errors.Return_outside_function stmt.stmt_loc);
+      ctx
 
 and check_block ctx block = List.fold_left check_stmt ctx block.block_stmts
 
@@ -141,8 +148,15 @@ and check_def ctx def =
       (fun id_map (name, ty) -> StringMap.add name ty id_map)
       ctx.identifiers translated_params
   in
-  let ctx_with_params = { ctx with identifiers = identifiers_with_params } in
-  ignore (check_block ctx_with_params def.def_body)
+  let return_type = translate_type ctx def.def_return_type in
+  let ctx_with_params_and_return_type =
+    {
+      ctx with
+      identifiers = identifiers_with_params;
+      return_type = Some return_type;
+    }
+  in
+  ignore (check_block ctx_with_params_and_return_type def.def_body)
 
 and check_record ctx record =
   Debug.trace_log "%s: checking: rec %s\n"
@@ -229,6 +243,7 @@ let check entry parsed_module =
         ]
         |> StringMap.of_list;
       identifiers = StringMap.empty;
+      return_type = None;
     }
   in
   let type_decls, defs =

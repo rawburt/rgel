@@ -8,6 +8,7 @@ def main() do
   var v: Vec = Vec(y: 20, x: 50)
   debug("v.x (50) = " + str(v.x))
   debug("v.y (20) = " + str(v.y))
+  debug("1 + 1 = " + str(add1(1)))
 end
 
 # order doesn't matter
@@ -18,4 +19,8 @@ end
 
 def debug(m: str) do
   log(m)
+end
+
+def add1(n: int) int do
+  ret n + 1
 end

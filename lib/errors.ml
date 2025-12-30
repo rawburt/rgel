@@ -12,6 +12,7 @@ type type_error =
   | Redeclared_identifier of string
   | Not_a_record of Types.t
   | Record_field_not_found of string * Types.t
+  | Return_outside_function
 
 type error =
   | Syntax_error of syntax_error * Location.t
@@ -53,5 +54,6 @@ let show_error = function
         | Record_field_not_found (field_name, t) ->
             Printf.sprintf "Record field not found: %s in type %s" field_name
               (Types.show t)
+        | Return_outside_function -> "Return statement outside of a function"
       in
       Printf.sprintf "%s %s" (error_prefix loc) type_error_msg

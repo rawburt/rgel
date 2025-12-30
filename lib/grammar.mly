@@ -10,7 +10,7 @@ open Parsed_ast
 %token LBRACKET RBRACKET
 %token EQ PLUS MINUS STAR SLASH EQEQ
 %token TRUE FALSE
-%token DEF DO END EXTERN REC VAR
+%token DEF DO END EXTERN REC VAR RET
 %token EOF
 
 %nonassoc EQEQ
@@ -51,11 +51,12 @@ extern:
   }
 
 def:
-| DEF ident=IDENT LPAREN params=separated_list(COMMA, def_param) RPAREN DO body=block END
+| DEF ident=IDENT LPAREN params=separated_list(COMMA, def_param) RPAREN return_type=option(parsed_type) DO body=block END
   {
     {
       def_name = ident;
       def_params = params;
+      def_return_type = Option.value return_type ~default:{ type_desc = Type_name "unit"; type_loc = Location.none };
       def_body = body;
       def_loc = Location.make_loc $loc;
     }
@@ -109,6 +110,7 @@ statement_desc:
       var_value;
     }
   }
+| RET ret_value=expr { Stmt_return ret_value }
 
 expr: expr_desc { { expr_desc = $1; expr_loc = Location.make_loc $loc; } }
 expr_desc:
