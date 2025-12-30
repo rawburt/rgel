@@ -5,7 +5,7 @@ open Parsed_ast
 %token <string> IDENT
 %token <string> STRING_LITERAL
 %token <int> INT_LITERAL
-%token LPAREN RPAREN COMMA
+%token LPAREN RPAREN COMMA COLON
 %token EQ
 %token TRUE FALSE
 %token DEF DO END EXTERN
@@ -37,13 +37,23 @@ extern:
   }
 
 def:
-| DEF ident=IDENT LPAREN RPAREN DO body=block END
+| DEF ident=IDENT LPAREN params=separated_list(COMMA, def_param) RPAREN DO body=block END
   {
     {
       def_name = ident;
-      def_params = [];
+      def_params = params;
       def_body = body;
       def_loc = Location.make_loc $loc;
+    }
+  }
+
+def_param:
+| name=IDENT COLON param_type=parsed_type
+  {
+    {
+      param_name = name;
+      param_type = param_type;
+      param_loc = Location.make_loc $loc;
     }
   }
 

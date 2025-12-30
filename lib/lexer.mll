@@ -34,6 +34,7 @@ rule token = parse
   | '('           { LPAREN }
   | ')'           { RPAREN }
   | ','           { COMMA }
+  | ':'           { COLON }
   | '='           { EQ }
   | ident as i    { kw_or_ident i }
   | integer as i  { INT_LITERAL (int_of_string i) }

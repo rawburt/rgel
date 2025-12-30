@@ -1,5 +1,9 @@
 extern log(str) unit = "console.log"
 
+def debug(m: str) do
+  log(m)
+end
+
 def main() do
-  log("hello")
+  debug("OK")
 end
