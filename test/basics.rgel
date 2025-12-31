@@ -10,6 +10,7 @@ def main() do
   debug("v.y (20) = " + str(v.y))
   debug("1 + 1 = " + str(add1(1)))
   debug("v = " + v.show())
+  debug("v * 3 = " + v.scale(3).show())
 end
 
 # order doesn't matter
@@ -18,8 +19,12 @@ rec Vec do
   y: int
 
   def show() str do
-    var s: str = "Vec(" + "x= " + str(self.x) + ", y = " + str(self.y) + ")"
+    var s: str = "Vec(" + "x = " + str(self.x) + ", y = " + str(self.y) + ")"
     ret s
+  end
+
+  def scale(factor: int) Vec do
+    ret Vec(x: self.x * factor, y: self.y * factor)
   end
 end
 

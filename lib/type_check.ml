@@ -316,13 +316,14 @@ and load_record ctx record =
     error (Errors.Redeclared_identifier record.rec_name) record.rec_loc;
   let record_type = Types.TRec (record.rec_name, ref []) in
   let types = StringMap.add record.rec_name record_type ctx.types in
+  let ctx_with_type = { ctx with types } in
   (* load methods *)
   let load_method method_def =
     let translated_params =
-      List.map (translate_param ctx) method_def.def_params
+      List.map (translate_param ctx_with_type) method_def.def_params
     in
     let param_types = List.map snd translated_params in
-    let return_type = translate_type ctx method_def.def_return_type in
+    let return_type = translate_type ctx_with_type method_def.def_return_type in
     (* self is first param when checking locally but not to the external world so its left out here *)
     let method_type = Types.TDef (param_types, return_type) in
     (method_def.def_name, method_type)
@@ -334,7 +335,7 @@ and load_record ctx record =
       (List.map load_method record.rec_methods)
   in
   let methods = StringMap.add record.rec_name method_map ctx.methods in
-  { ctx with types; methods }
+  { ctx_with_type with methods }
 
 and load_toplevel ctx = function
   | Toplevel_def def -> load_def ctx def
