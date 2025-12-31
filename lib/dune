@@ -6,6 +6,7 @@
   debug
   location
   parsed_ast
+  typed_ast
   grammar
   lexer
   errors

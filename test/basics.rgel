@@ -9,12 +9,18 @@ def main() do
   debug("v.x (50) = " + str(v.x))
   debug("v.y (20) = " + str(v.y))
   debug("1 + 1 = " + str(add1(1)))
+  debug("v = " + v.show())
 end
 
 # order doesn't matter
 rec Vec do
   x: int
   y: int
+
+  def show() str do
+    var s: str = "Vec(" + "x= " + str(self.x) + ", y = " + str(self.y) + ")"
+    ret s
+  end
 end
 
 def debug(m: str) do

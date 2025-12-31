@@ -38,6 +38,8 @@ let show ty =
   in
   show_aux ty
 
+let pp fmt ty = Format.fprintf fmt "%s" (show ty)
+
 let instantiate ty =
   let tbl = Hashtbl.create 8 in
   let rec aux ty =

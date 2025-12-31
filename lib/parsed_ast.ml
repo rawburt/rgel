@@ -21,7 +21,7 @@ type parsed_expr = { expr_desc : expr_desc; expr_loc : Location.t }
 
 and expr_desc =
   | Expr_literal of literal
-  | Expr_ident of identifier
+  | Expr_variable of identifier
   | Expr_call of call_expr
   | Expr_binary_op of {
       binop_left : parsed_expr;
@@ -67,6 +67,7 @@ type def_param = {
 type parsed_def = {
   def_name : identifier;
   def_params : def_param list;
+  (* NOTE when adding type params, ensure bodies are typed for each instance? *)
   def_return_type : parsed_type;
   def_body : parsed_block;
   def_loc : Location.t;
@@ -93,6 +94,7 @@ type rec_field = {
 type parsed_rec = {
   rec_name : identifier;
   rec_fields : rec_field list;
+  rec_methods : parsed_def list;
   rec_loc : Location.t;
 }
 [@@deriving show]

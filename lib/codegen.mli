@@ -1,1 +1,1 @@
-val emit : string -> Parsed_ast.parsed_module -> string
+val emit : string -> Typed_ast.typed_module -> string

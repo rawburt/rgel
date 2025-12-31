@@ -1,2 +1,4 @@
 val check :
-  string -> Parsed_ast.parsed_module -> (unit, Errors.error list) Result.t
+  string ->
+  Parsed_ast.parsed_module ->
+  (Typed_ast.typed_module, Errors.error list) Result.t

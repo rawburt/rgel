@@ -72,11 +72,12 @@ def_param:
     }
   }
 
-record: REC rec_name=TIDENT DO rec_fields=list(rec_field) END
+record: REC rec_name=TIDENT DO rec_fields=list(rec_field) rec_methods=list(def) END
   {
     {
       rec_name;
       rec_fields;
+      rec_methods;
       rec_loc = Location.make_loc $loc;
     }
   }
@@ -115,7 +116,7 @@ statement_desc:
 expr: expr_desc { { expr_desc = $1; expr_loc = Location.make_loc $loc; } }
 expr_desc:
 | literal { Expr_literal $1 }
-| IDENT { Expr_ident $1 }
+| IDENT { Expr_variable $1 }
 | postfix_expr { $1 }
 | rec_type_name=TIDENT LPAREN rec_fields=separated_list(COMMA, rec_field_expr) RPAREN
   { Expr_rec { rec_type_name; rec_fields; } }

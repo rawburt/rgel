@@ -1,4 +1,5 @@
 open Parsed_ast
+open Typed_ast
 module StringMap = Map.Make (String)
 
 let errors = ref []
@@ -6,6 +7,7 @@ let errors = ref []
 type context = {
   types : Types.t StringMap.t;
   identifiers : Types.t StringMap.t;
+  methods : Types.t StringMap.t StringMap.t;
   return_type : Types.t option;
 }
 
@@ -30,115 +32,179 @@ let check_literal = function
   | Lit_int _ -> Types.TInt
   | Lit_string _ -> Types.TStr
 
-let rec check_expr ctx expr =
-  let check_call_expr call_expr =
-    let arg_types =
-      List.map (fun arg -> check_expr ctx arg) call_expr.call_args
-    in
-    let def_type = check_expr ctx call_expr.call_def in
-    match def_type with
+let rec check_expr ctx (expr : parsed_expr) : typed_expr =
+  let check_call_expr (call_expr : Parsed_ast.call_expr) =
+    let typed_args = List.map (check_expr ctx) call_expr.call_args in
+    let arg_types = List.map (fun arg -> arg.texpr_type) typed_args in
+    let typed_def = check_expr ctx call_expr.call_def in
+    match typed_def.texpr_type with
     | Types.TDef (_, return_type) ->
         let tvar = Types.fresh_var () in
-        unification expr.expr_loc def_type (Types.TDef (arg_types, tvar));
-        return_type
+        unification expr.expr_loc typed_def.texpr_type
+          (Types.TDef (arg_types, tvar));
+        ( TExpr_call { call_def = typed_def; call_args = typed_args },
+          return_type )
     | _ ->
-        error (Errors.Not_a_function def_type) expr.expr_loc;
-        Types.fresh_var ()
+        error (Errors.Not_a_function typed_def.texpr_type) expr.expr_loc;
+        ( TExpr_call { call_def = typed_def; call_args = typed_args },
+          Types.fresh_var () )
   in
+
   let check_rec_expr rec_type_name rec_fields =
-    match StringMap.find_opt rec_type_name ctx.types with
-    | Some (Types.TRec _ as rec_type) ->
-        let rec_fields_types =
-          List.map
-            (fun (fname, fexpr) -> (fname, check_expr ctx fexpr))
-            rec_fields
-        in
-        unification expr.expr_loc rec_type
-          (Types.TRec (rec_type_name, ref rec_fields_types));
-        rec_type
-    | Some other_type ->
-        error (Errors.Not_a_record other_type) expr.expr_loc;
-        Types.fresh_var ()
-    | None ->
-        error (Errors.Type_not_found rec_type_name) expr.expr_loc;
-        Types.fresh_var ()
-  in
-  let check_member_access member_object member_name =
-    let object_type = check_expr ctx member_object in
-    match object_type with
-    | Types.TRec (_rec_name, fields_ref) -> (
-        match List.assoc_opt member_name !fields_ref with
-        | Some field_type -> field_type
-        | None ->
-            error
-              (Errors.Record_field_not_found (member_name, object_type))
-              expr.expr_loc;
-            Types.fresh_var ())
-    | _ ->
-        error (Errors.Not_a_record object_type) expr.expr_loc;
-        Types.fresh_var ()
-  in
-  match expr.expr_desc with
-  | Expr_literal lit -> check_literal lit
-  | Expr_ident ident -> (
-      match StringMap.find_opt ident ctx.identifiers with
-      | Some t -> Types.instantiate t
+    let typed_rec_fields =
+      List.map (fun (fname, fexpr) -> (fname, check_expr ctx fexpr)) rec_fields
+    in
+    let rec_field_types =
+      List.map
+        (fun (fname, fexpr) -> (fname, fexpr.texpr_type))
+        typed_rec_fields
+    in
+    let ty =
+      match StringMap.find_opt rec_type_name ctx.types with
+      | Some (Types.TRec _ as rec_type) ->
+          unification expr.expr_loc rec_type
+            (Types.TRec (rec_type_name, ref rec_field_types));
+          rec_type
+      | Some other_type ->
+          error (Errors.Not_a_record other_type) expr.expr_loc;
+          Types.fresh_var ()
       | None ->
-          error (Errors.Identifier_not_found ident) expr.expr_loc;
-          Types.fresh_var ())
-  | Expr_call call_expr -> check_call_expr call_expr
-  | Expr_rec { rec_type_name; rec_fields } ->
-      check_rec_expr rec_type_name rec_fields
-  | Expr_binary_op { binop_left; binop_operator; binop_right } -> (
-      let left_type = check_expr ctx binop_left in
-      let right_type = check_expr ctx binop_right in
-      match binop_operator with
-      | Binop_add ->
-          let expected_type =
-            match left_type with Types.TStr -> Types.TStr | _ -> Types.TInt
-          in
-          unification expr.expr_loc left_type expected_type;
-          unification expr.expr_loc right_type expected_type;
-          expected_type
-      | Binop_sub | Binop_mul | Binop_div ->
-          unification expr.expr_loc left_type Types.TInt;
-          unification expr.expr_loc right_type Types.TInt;
-          Types.TInt
-      | Binop_eq ->
-          unification expr.expr_loc left_type right_type;
-          Types.TBool)
-  | Expr_member_access { member_object; member_name } ->
-      check_member_access member_object member_name
+          error (Errors.Type_not_found rec_type_name) expr.expr_loc;
+          Types.fresh_var ()
+    in
+    (TExpr_rec { rec_fields = typed_rec_fields }, ty)
+  in
 
-and check_stmt ctx stmt =
-  match stmt.stmt_desc with
-  | Stmt_expr expr ->
-      let _ = check_expr ctx expr in
-      ctx
-  | Stmt_var { var_name; var_type; var_value } ->
-      if StringMap.mem var_name ctx.identifiers then
-        error (Errors.Redeclared_identifier var_name) stmt.stmt_loc;
-      let translated_type = translate_type ctx var_type in
-      let value_type = check_expr ctx var_value in
-      unification stmt.stmt_loc translated_type value_type;
-      let identifiers =
-        StringMap.add var_name translated_type ctx.identifiers
-      in
-      { ctx with identifiers }
-  | Stmt_return expr ->
-      let expr_type = check_expr ctx expr in
-      (match ctx.return_type with
-      | Some expected_type -> unification stmt.stmt_loc expected_type expr_type
-      | None -> error Errors.Return_outside_function stmt.stmt_loc);
-      ctx
+  let check_member_access member_object member_name =
+    let typed_object = check_expr ctx member_object in
+    let is_method, field_type =
+      match typed_object.texpr_type with
+      | Types.TRec (rec_name, fields_ref) -> (
+          (* check if it is a record field *)
+          match List.assoc_opt member_name !fields_ref with
+          | Some field_type -> (false, field_type)
+          | None -> (
+              (* check if it is a record method *)
+              match StringMap.find_opt rec_name ctx.methods with
+              | Some method_map -> (
+                  match StringMap.find_opt member_name method_map with
+                  | Some method_type -> (true, method_type)
+                  | None ->
+                      error
+                        (Errors.Record_field_not_found
+                           (member_name, typed_object.texpr_type))
+                        expr.expr_loc;
+                      (false, Types.fresh_var ()))
+              | None ->
+                  error
+                    (Errors.Record_field_not_found
+                       (member_name, typed_object.texpr_type))
+                    expr.expr_loc;
+                  (false, Types.fresh_var ())))
+      | _ ->
+          error (Errors.Not_a_record typed_object.texpr_type) expr.expr_loc;
+          (false, Types.fresh_var ())
+    in
+    ( TExpr_member_access
+        { member_object = typed_object; member_name; is_method },
+      field_type )
+  in
 
-and check_block ctx block = List.fold_left check_stmt ctx block.block_stmts
+  let texpr_desc, texpr_type =
+    match expr.expr_desc with
+    | Expr_literal lit -> (TExpr_literal lit, check_literal lit)
+    | Expr_variable ident ->
+        let ty =
+          match StringMap.find_opt ident ctx.identifiers with
+          | Some t -> Types.instantiate t
+          | None ->
+              error (Errors.Identifier_not_found ident) expr.expr_loc;
+              Types.fresh_var ()
+        in
+        (TExpr_variable ident, ty)
+    | Expr_call call_expr -> check_call_expr call_expr
+    | Expr_rec { rec_type_name; rec_fields } ->
+        check_rec_expr rec_type_name rec_fields
+    | Expr_binary_op { binop_left; binop_operator; binop_right } ->
+        let typed_binop_left = check_expr ctx binop_left in
+        let typed_binop_right = check_expr ctx binop_right in
+        let ty =
+          match binop_operator with
+          | Binop_add ->
+              let expected_type =
+                match typed_binop_left.texpr_type with
+                | Types.TStr -> Types.TStr
+                | _ -> Types.TInt
+              in
+              unification expr.expr_loc typed_binop_left.texpr_type
+                expected_type;
+              unification expr.expr_loc typed_binop_right.texpr_type
+                expected_type;
+              expected_type
+          | Binop_sub | Binop_mul | Binop_div ->
+              unification expr.expr_loc typed_binop_left.texpr_type Types.TInt;
+              unification expr.expr_loc typed_binop_right.texpr_type Types.TInt;
+              Types.TInt
+          | Binop_eq ->
+              unification expr.expr_loc typed_binop_left.texpr_type
+                typed_binop_right.texpr_type;
+              Types.TBool
+        in
+        ( TExpr_binary_op
+            {
+              binop_left = typed_binop_left;
+              binop_operator;
+              binop_right = typed_binop_right;
+            },
+          ty )
+    | Expr_member_access { member_object; member_name } ->
+        check_member_access member_object member_name
+  in
+  { texpr_desc; texpr_type; texpr_loc = expr.expr_loc }
+
+and check_stmt ctx stmt : context * typed_stmt =
+  let new_ctx, typed_stmt =
+    match stmt.stmt_desc with
+    | Stmt_expr expr ->
+        let typed_expr = check_expr ctx expr in
+        (ctx, TStmt_expr typed_expr)
+    | Stmt_var { var_name; var_type; var_value } ->
+        if StringMap.mem var_name ctx.identifiers then
+          error (Errors.Redeclared_identifier var_name) stmt.stmt_loc;
+        let translated_type = translate_type ctx var_type in
+        let typed_var_value = check_expr ctx var_value in
+        unification stmt.stmt_loc translated_type typed_var_value.texpr_type;
+        let identifiers =
+          StringMap.add var_name translated_type ctx.identifiers
+        in
+        ( { ctx with identifiers },
+          TStmt_var
+            {
+              var_name;
+              var_type = translated_type;
+              var_value = typed_var_value;
+            } )
+    | Stmt_return expr ->
+        let typed_expr = check_expr ctx expr in
+        (match ctx.return_type with
+        | Some expected_type ->
+            unification stmt.stmt_loc expected_type typed_expr.texpr_type
+        | None -> error Errors.Return_outside_function stmt.stmt_loc);
+        (ctx, TStmt_return typed_expr)
+  in
+  (new_ctx, { tstmt_desc = typed_stmt; tstmt_loc = stmt.stmt_loc })
+
+and check_block ctx block =
+  let _new_ctx, typed_stmts =
+    List.fold_left_map check_stmt ctx block.block_stmts
+  in
+  typed_stmts
 
 and translate_param ctx param =
   let param_type = translate_type ctx param.param_type in
   (param.param_name, param_type)
 
-and check_def ctx def =
+and check_def ctx def : typed_def =
   Debug.trace_log "%s: checking: def %s\n"
     (Location.show def.def_loc)
     def.def_name;
@@ -156,28 +222,54 @@ and check_def ctx def =
       return_type = Some return_type;
     }
   in
-  ignore (check_block ctx_with_params_and_return_type def.def_body)
+  let typed_stmts = check_block ctx_with_params_and_return_type def.def_body in
+  {
+    tdef_name = def.def_name;
+    tdef_params = translated_params;
+    tdef_return_type = return_type;
+    tdef_body = typed_stmts;
+    tdef_loc = def.def_loc;
+  }
 
-and check_record ctx record =
+and check_record ctx record : typed_rec =
   Debug.trace_log "%s: checking: rec %s\n"
     (Location.show record.rec_loc)
     record.rec_name;
   match StringMap.find_opt record.rec_name ctx.types with
-  | Some (Types.TRec (_, fields_ref)) ->
+  | Some (Types.TRec (rec_name, fields_ref)) ->
+      (* check fields *)
       let check_field field =
         let field_type = translate_type ctx field.field_type in
         (field.field_name, field_type)
       in
       fields_ref := List.map check_field record.rec_fields;
-      ctx
+      (* check methods  *)
+      let record_type = Types.TRec (rec_name, fields_ref) in
+      let ctx_with_self =
+        {
+          ctx with
+          identifiers = StringMap.add "self" record_type ctx.identifiers;
+        }
+      in
+      let check_method method_def = check_def ctx_with_self method_def in
+      let typed_methods = List.map check_method record.rec_methods in
+      {
+        trec_name = record.rec_name;
+        trec_fields = !fields_ref;
+        trec_methods = typed_methods;
+        trec_loc = record.rec_loc;
+      }
   | _ -> failwith "Unreachable: record type not found in context"
 
-and check_toplevel ctx = function
+and check_toplevel ctx toplevel : context * typed_toplevel =
+  match toplevel with
   | Toplevel_def def ->
-      check_def ctx def;
-      ctx
-  | Toplevel_extern _extern -> ctx
-  | Toplevel_rec record -> check_record ctx record
+      let typed_def = check_def ctx def in
+      (ctx, ToplevelT_def typed_def)
+  | Toplevel_extern extern -> (ctx, ToplevelT_extern extern)
+  | Toplevel_rec record ->
+      let typed_record = check_record ctx record in
+      (ctx, ToplevelT_rec typed_record)
 
 and load_def ctx def =
   Debug.trace_log "%s: loading: def %s\n"
@@ -224,7 +316,25 @@ and load_record ctx record =
     error (Errors.Redeclared_identifier record.rec_name) record.rec_loc;
   let record_type = Types.TRec (record.rec_name, ref []) in
   let types = StringMap.add record.rec_name record_type ctx.types in
-  { ctx with types }
+  (* load methods *)
+  let load_method method_def =
+    let translated_params =
+      List.map (translate_param ctx) method_def.def_params
+    in
+    let param_types = List.map snd translated_params in
+    let return_type = translate_type ctx method_def.def_return_type in
+    (* self is first param when checking locally but not to the external world so its left out here *)
+    let method_type = Types.TDef (param_types, return_type) in
+    (method_def.def_name, method_type)
+  in
+  let method_map =
+    List.fold_left
+      (fun map (name, ty) -> StringMap.add name ty map)
+      StringMap.empty
+      (List.map load_method record.rec_methods)
+  in
+  let methods = StringMap.add record.rec_name method_map ctx.methods in
+  { ctx with types; methods }
 
 and load_toplevel ctx = function
   | Toplevel_def def -> load_def ctx def
@@ -243,6 +353,7 @@ let check entry parsed_module =
         ]
         |> StringMap.of_list;
       identifiers = StringMap.empty;
+      methods = StringMap.empty;
       return_type = None;
     }
   in
@@ -259,5 +370,13 @@ let check entry parsed_module =
   in
   if not (StringMap.mem entry ctx_with_types.identifiers) then
     error (Errors.Entry_not_found entry) Location.none;
-  let _ = List.fold_left check_toplevel ctx_with_types ordered_toplevels in
-  if !errors = [] then Ok () else Error (List.rev !errors)
+  let _ctx, typed_toplevels =
+    List.fold_left_map check_toplevel ctx_with_types ordered_toplevels
+  in
+  let typed_module =
+    {
+      tmodule_name = parsed_module.module_name;
+      tmodule_toplevels = typed_toplevels;
+    }
+  in
+  if !errors = [] then Ok typed_module else Error (List.rev !errors)

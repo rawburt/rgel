@@ -60,8 +60,8 @@ let () =
           (fun error -> print_endline (Rgel.Errors.show_error error))
           errors;
         exit 1
-    | Ok _ ->
-        let output_code = Rgel.Codegen.emit !entry parsed_module in
+    | Ok typed_module ->
+        let output_code = Rgel.Codegen.emit !entry typed_module in
         let oc = open_out !output_file in
         output_string oc output_code;
         close_out oc;
