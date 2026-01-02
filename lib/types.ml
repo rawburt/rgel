@@ -69,42 +69,39 @@ let instantiate ty =
   in
   aux ty
 
-let rec final_ty ty =
+let rec occurs id ty =
   match ty with
-  | TVar (({ contents = Some t } as r), _) ->
-      let t' = final_ty t in
-      r := Some t';
-      t'
-  | _ -> ty
+  | TVar ({ contents = None }, id1) -> id1 = id
+  | TVar ({ contents = Some t }, _) -> occurs id t
+  | TDef (params, ret) -> List.exists (occurs id) params || occurs id ret
+  | TRec (_, fields_ref) ->
+      List.exists (fun (_, field_ty) -> occurs id field_ty) !fields_ref
+  | TBool | TInt | TStr | TUnit | TParam _ -> false
 
 let rec unify t1 t2 =
-  let t1' = final_ty t1 in
-  let t2' = final_ty t2 in
-  match (t1', t2') with
-  | TVar (({ contents = None } as r1), _), _ ->
-      r1 := Some t2';
-      true
-  | _, TVar (({ contents = None } as r2), _) ->
-      r2 := Some t1';
-      true
-  | TBool, TBool -> true
-  | TInt, TInt -> true
-  | TStr, TStr -> true
+  match (t1, t2) with
+  | TVar ({ contents = Some t1' }, _), TVar ({ contents = Some t2' }, _) ->
+      unify t1' t2'
+  | TVar (({ contents = None } as r1), id1), _ ->
+      if occurs id1 t2 then false
+      else (
+        r1 := Some t2;
+        true)
+  | _, TVar (({ contents = None } as r2), id2) ->
+      if occurs id2 t1 then false
+      else (
+        r2 := Some t1;
+        true)
   | TDef (args1, ret1), TDef (args2, ret2) ->
       List.length args1 = List.length args2
       && List.for_all2 unify args1 args2
       && unify ret1 ret2
-  | TRec (name1, fields1), TRec (name2, fields2) when name1 = name2 ->
-      if List.length !fields1 = List.length !fields2 then
-        let sorted1 =
-          List.sort (fun (n1, _) (n2, _) -> String.compare n1 n2) !fields1
-        in
-        let sorted2 =
-          List.sort (fun (n1, _) (n2, _) -> String.compare n1 n2) !fields2
-        in
-        List.for_all2
-          (fun (field_name1, field_type1) (field_name2, field_type2) ->
-            field_name1 = field_name2 && unify field_type1 field_type2)
-          sorted1 sorted2
-      else false
+  | TRec (name1, fields1), TRec (name2, fields2) ->
+      name1 = name2
+      && List.length !fields1 = List.length !fields2
+      && List.for_all2
+           (fun (n1, t1) (n2, t2) -> n1 = n2 && unify t1 t2)
+           !fields1 !fields2
+  | TBool, TBool | TInt, TInt | TStr, TStr -> true
+  | TParam name1, TParam name2 when name1 = name2 -> true
   | _ -> false

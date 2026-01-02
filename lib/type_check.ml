@@ -59,7 +59,7 @@ let rec check_expr ctx (expr : parsed_expr) : typed_expr =
         (fun (fname, fexpr) -> (fname, fexpr.texpr_type))
         typed_rec_fields
     in
-    let ty =
+    let result_ty =
       match StringMap.find_opt rec_type_name ctx.types with
       | Some (Types.TRec _ as rec_type) ->
           unification expr.expr_loc rec_type
@@ -72,7 +72,7 @@ let rec check_expr ctx (expr : parsed_expr) : typed_expr =
           error (Errors.Type_not_found rec_type_name) expr.expr_loc;
           Types.fresh_var ()
     in
-    (TExpr_rec { rec_fields = typed_rec_fields }, ty)
+    (TExpr_rec { rec_fields = typed_rec_fields }, result_ty)
   in
 
   let check_member_access member_object member_name =
@@ -128,7 +128,7 @@ let rec check_expr ctx (expr : parsed_expr) : typed_expr =
     | Expr_binary_op { binop_left; binop_operator; binop_right } ->
         let typed_binop_left = check_expr ctx binop_left in
         let typed_binop_right = check_expr ctx binop_right in
-        let ty =
+        let result_ty =
           match binop_operator with
           | Binop_add ->
               let expected_type =
@@ -156,7 +156,7 @@ let rec check_expr ctx (expr : parsed_expr) : typed_expr =
               binop_operator;
               binop_right = typed_binop_right;
             },
-          ty )
+          result_ty )
     | Expr_member_access { member_object; member_name } ->
         check_member_access member_object member_name
   in
@@ -279,7 +279,7 @@ and load_def ctx def =
     error (Errors.Redeclared_identifier def.def_name) def.def_loc;
   let translated_params = List.map (translate_param ctx) def.def_params in
   let param_types = List.map snd translated_params in
-  let return_type = Types.TUnit in
+  let return_type = translate_type ctx def.def_return_type in
   let def_type = Types.TDef (param_types, return_type) in
   let identifiers = StringMap.add def.def_name def_type ctx.identifiers in
   { ctx with identifiers }
