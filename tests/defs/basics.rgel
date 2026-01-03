@@ -1,0 +1,13 @@
+# test: success
+# output: 3 == 3
+
+extern def log(str) unit = "console.log"
+extern def str[T](T) str = "JSON.stringify"
+
+def add1(n: int) int do
+  ret n + 1
+end
+
+def main() do
+  log("3 == " + str(add1(2)))
+end
