@@ -1,0 +1,9 @@
+# test: success
+# output: 5 / 2 == 2
+
+extern def log(str) unit = "console.log"
+extern def str[T](T) str = "JSON.stringify"
+
+def main() do
+  log("5 / 2 == " + str(5 / 2))
+end
