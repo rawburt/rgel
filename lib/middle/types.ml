@@ -1,4 +1,5 @@
 type t =
+  | TDummy
   | TUnit
   | TBool
   | TInt
@@ -7,6 +8,12 @@ type t =
   | TVar of t option ref * int
   | TParam of string
   | TRec of string
+
+let rec is_dummy ty =
+  match ty with
+  | TDummy -> true
+  | TVar ({ contents = Some t }, _) -> is_dummy t
+  | _ -> false
 
 let primitives =
   [ ("unit", TUnit); ("bool", TBool); ("int", TInt); ("str", TStr) ]
@@ -20,6 +27,7 @@ let fresh_var =
 
 let show ty =
   let rec show_aux = function
+    | TDummy -> "_"
     | TUnit -> "unit"
     | TBool -> "bool"
     | TInt -> "int"
@@ -28,7 +36,7 @@ let show ty =
         let args_str = arg_types |> List.map show_aux |> String.concat " -> " in
         Printf.sprintf "(%s) -> %s" args_str (show_aux return_type)
     | TVar ({ contents = Some t }, _) -> show_aux t
-    | TVar ({ contents = None }, id) -> "$" ^ string_of_int id
+    | TVar ({ contents = None }, id) -> "'" ^ string_of_int id
     | TParam name -> name
     | TRec name -> name
   in
@@ -40,6 +48,7 @@ let instantiate ty =
   let tbl = Hashtbl.create 8 in
   let rec aux ty =
     match ty with
+    | TDummy -> TDummy
     | TUnit -> TUnit
     | TBool -> TBool
     | TInt -> TInt
@@ -67,10 +76,11 @@ let rec occurs id ty =
   | TVar ({ contents = Some t }, _) -> occurs id t
   | TDef (params, ret) -> List.exists (occurs id) params || occurs id ret
   | TRec _name -> false
-  | TBool | TInt | TStr | TUnit | TParam _ -> false
+  | TDummy | TBool | TInt | TStr | TUnit | TParam _ -> false
 
 let rec unify t1 t2 =
   match (t1, t2) with
+  | TDummy, _ | _, TDummy -> true
   | TVar ({ contents = Some t1' }, _), TVar ({ contents = Some t2' }, _) ->
       unify t1' t2'
   | TVar (({ contents = None } as r1), id1), _ ->

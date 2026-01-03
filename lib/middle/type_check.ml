@@ -22,10 +22,10 @@ let rec check_call_expr env (call_expr : Parsed_ast.call_expr) loc =
       let tvar = Types.fresh_var () in
       unification loc typed_def.texpr_type (Types.TDef (arg_types, tvar));
       (TExpr_call { call_def = typed_def; call_args = typed_args }, return_type)
-  | _ ->
-      Errors.log_type_error (Errors.Not_a_function typed_def.texpr_type) loc;
-      ( TExpr_call { call_def = typed_def; call_args = typed_args },
-        Types.fresh_var () )
+  | t ->
+      if not (Types.is_dummy t) then
+        Errors.log_type_error (Errors.Not_a_function typed_def.texpr_type) loc;
+      (TExpr_call { call_def = typed_def; call_args = typed_args }, Types.TDummy)
 
 and check_rec_expr env rec_type_name rec_fields loc =
   let typed_rec_fields =
@@ -58,7 +58,7 @@ and check_rec_expr env rec_type_name rec_fields loc =
         Types.TRec rec_type_name
     | None ->
         Errors.log_type_error (Errors.Type_not_found rec_type_name) loc;
-        Types.fresh_var ()
+        Types.TDummy
   in
   (TExpr_rec { rec_fields = typed_rec_fields }, result_ty)
 
@@ -83,10 +83,10 @@ and check_member_access env member_object member_name loc =
                   (Errors.Record_field_not_found
                      (member_name, typed_object.texpr_type))
                   loc;
-                (false, Types.fresh_var ())))
+                (false, Types.TDummy)))
     | _ ->
         Errors.log_type_error (Errors.Not_a_record typed_object.texpr_type) loc;
-        (false, Types.fresh_var ())
+        (false, Types.TDummy)
   in
   ( TExpr_member_access { member_object = typed_object; member_name; is_method },
     field_type )
@@ -102,7 +102,7 @@ and check_expr env (expr : parsed_expr) : typed_expr =
           | None ->
               Errors.log_type_error (Errors.Identifier_not_found ident)
                 expr.expr_loc;
-              Types.fresh_var ()
+              Types.TDummy
         in
         (TExpr_variable ident, ty)
     | Expr_call call_expr -> check_call_expr env call_expr expr.expr_loc
