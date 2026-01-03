@@ -12,7 +12,8 @@
   errors
   type_check
   types
-  codegen))
+  codegen
+  env))
 
 (menhir
  (modules grammar))
