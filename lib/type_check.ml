@@ -1,30 +1,78 @@
 open Parsed_ast
 open Typed_ast
-module StringMap = Map.Make (String)
 
-let errors = ref []
+(* -------------------------------------------- *)
 
-type context = {
-  types : Types.t StringMap.t;
-  identifiers : Types.t StringMap.t;
-  methods : Types.t StringMap.t StringMap.t;
-  return_type : Types.t option;
-}
+module Context = struct
+  module StringMap = Map.Make (String)
 
-let error error loc = errors := Errors.Type_error (error, loc) :: !errors
+  type t = {
+    types : Types.t StringMap.t;
+    locals : Types.t StringMap.t;
+    methods : Types.t StringMap.t StringMap.t;
+    return_type : Types.t option;
+  }
+
+  let errors = ref []
+
+  let create () =
+    errors := [];
+    {
+      types = Types.primitives |> StringMap.of_list;
+      locals = StringMap.empty;
+      methods = StringMap.empty;
+      return_type = None;
+    }
+
+  let error error loc = errors := Errors.Type_error (error, loc) :: !errors
+  let find_type ctx name = StringMap.find_opt name ctx.types
+  let find_methods ctx name = StringMap.find_opt name ctx.methods
+
+  let find_method ctx rec_name method_name =
+    match find_methods ctx rec_name with
+    | Some method_map -> StringMap.find_opt method_name method_map
+    | None -> None
+
+  let find_local ctx name = StringMap.find_opt name ctx.locals
+  let mem_local ctx name = StringMap.mem name ctx.locals
+  let mem_type ctx name = StringMap.mem name ctx.types
+
+  let add_local ctx name ty =
+    { ctx with locals = StringMap.add name ty ctx.locals }
+
+  let add_type ctx name ty =
+    { ctx with types = StringMap.add name ty ctx.types }
+
+  let add_method ctx rec_name method_name ty =
+    let method_map =
+      match find_methods ctx rec_name with
+      | Some map -> map
+      | None -> StringMap.empty
+    in
+    let updated_method_map = StringMap.add method_name ty method_map in
+    let updated_methods =
+      StringMap.add rec_name updated_method_map ctx.methods
+    in
+    { ctx with methods = updated_methods }
+
+  let set_return_type ctx return_type = { ctx with return_type }
+end
+
+(* -------------------------------------------- *)
 
 let unification loc t1 t2 =
   Debug.trace_log "%s: unification: (%s) and (%s)\n" (Location.show loc)
     (Types.show t1) (Types.show t2);
-  if Types.unify t1 t2 then () else error (Errors.Type_mismatch (t1, t2)) loc
+  if Types.unify t1 t2 then ()
+  else Context.error (Errors.Type_mismatch (t1, t2)) loc
 
 let translate_type ctx parsed_type =
   match parsed_type.type_desc with
   | Type_name name -> (
-      match StringMap.find_opt name ctx.types with
+      match Context.find_type ctx name with
       | Some t -> t
       | None ->
-          error (Errors.Type_not_found name) parsed_type.type_loc;
+          Context.error (Errors.Type_not_found name) parsed_type.type_loc;
           Types.fresh_var ())
 
 let check_literal = function
@@ -45,7 +93,7 @@ let rec check_expr ctx (expr : parsed_expr) : typed_expr =
         ( TExpr_call { call_def = typed_def; call_args = typed_args },
           return_type )
     | _ ->
-        error (Errors.Not_a_function typed_def.texpr_type) expr.expr_loc;
+        Context.error (Errors.Not_a_function typed_def.texpr_type) expr.expr_loc;
         ( TExpr_call { call_def = typed_def; call_args = typed_args },
           Types.fresh_var () )
   in
@@ -60,16 +108,16 @@ let rec check_expr ctx (expr : parsed_expr) : typed_expr =
         typed_rec_fields
     in
     let result_ty =
-      match StringMap.find_opt rec_type_name ctx.types with
+      match Context.find_type ctx rec_type_name with
       | Some (Types.TRec _ as rec_type) ->
           unification expr.expr_loc rec_type
             (Types.TRec (rec_type_name, ref rec_field_types));
           rec_type
       | Some other_type ->
-          error (Errors.Not_a_record other_type) expr.expr_loc;
+          Context.error (Errors.Not_a_record other_type) expr.expr_loc;
           Types.fresh_var ()
       | None ->
-          error (Errors.Type_not_found rec_type_name) expr.expr_loc;
+          Context.error (Errors.Type_not_found rec_type_name) expr.expr_loc;
           Types.fresh_var ()
     in
     (TExpr_rec { rec_fields = typed_rec_fields }, result_ty)
@@ -84,25 +132,17 @@ let rec check_expr ctx (expr : parsed_expr) : typed_expr =
           match List.assoc_opt member_name !fields_ref with
           | Some field_type -> (false, field_type)
           | None -> (
-              (* check if it is a record method *)
-              match StringMap.find_opt rec_name ctx.methods with
-              | Some method_map -> (
-                  match StringMap.find_opt member_name method_map with
-                  | Some method_type -> (true, method_type)
-                  | None ->
-                      error
-                        (Errors.Record_field_not_found
-                           (member_name, typed_object.texpr_type))
-                        expr.expr_loc;
-                      (false, Types.fresh_var ()))
+              match Context.find_method ctx rec_name member_name with
+              | Some method_type -> (true, method_type)
               | None ->
-                  error
+                  Context.error
                     (Errors.Record_field_not_found
                        (member_name, typed_object.texpr_type))
                     expr.expr_loc;
                   (false, Types.fresh_var ())))
       | _ ->
-          error (Errors.Not_a_record typed_object.texpr_type) expr.expr_loc;
+          Context.error (Errors.Not_a_record typed_object.texpr_type)
+            expr.expr_loc;
           (false, Types.fresh_var ())
     in
     ( TExpr_member_access
@@ -115,10 +155,10 @@ let rec check_expr ctx (expr : parsed_expr) : typed_expr =
     | Expr_literal lit -> (TExpr_literal lit, check_literal lit)
     | Expr_variable ident ->
         let ty =
-          match StringMap.find_opt ident ctx.identifiers with
+          match Context.find_local ctx ident with
           | Some t -> Types.instantiate t
           | None ->
-              error (Errors.Identifier_not_found ident) expr.expr_loc;
+              Context.error (Errors.Identifier_not_found ident) expr.expr_loc;
               Types.fresh_var ()
         in
         (TExpr_variable ident, ty)
@@ -162,22 +202,20 @@ let rec check_expr ctx (expr : parsed_expr) : typed_expr =
   in
   { texpr_desc; texpr_type; texpr_loc = expr.expr_loc }
 
-and check_stmt ctx stmt : context * typed_stmt =
+and check_stmt ctx stmt : Context.t * typed_stmt =
   let new_ctx, typed_stmt =
     match stmt.stmt_desc with
     | Stmt_expr expr ->
         let typed_expr = check_expr ctx expr in
         (ctx, TStmt_expr typed_expr)
     | Stmt_var { var_name; var_type; var_value } ->
-        if StringMap.mem var_name ctx.identifiers then
-          error (Errors.Redeclared_identifier var_name) stmt.stmt_loc;
+        if Context.mem_local ctx var_name then
+          Context.error (Errors.Redeclared_identifier var_name) stmt.stmt_loc;
         let translated_type = translate_type ctx var_type in
         let typed_var_value = check_expr ctx var_value in
         unification stmt.stmt_loc translated_type typed_var_value.texpr_type;
-        let identifiers =
-          StringMap.add var_name translated_type ctx.identifiers
-        in
-        ( { ctx with identifiers },
+        let ctx' = Context.add_local ctx var_name translated_type in
+        ( ctx',
           TStmt_var
             {
               var_name;
@@ -189,7 +227,7 @@ and check_stmt ctx stmt : context * typed_stmt =
         (match ctx.return_type with
         | Some expected_type ->
             unification stmt.stmt_loc expected_type typed_expr.texpr_type
-        | None -> error Errors.Return_outside_function stmt.stmt_loc);
+        | None -> Context.error Errors.Return_outside_function stmt.stmt_loc);
         (ctx, TStmt_return typed_expr)
   in
   (new_ctx, { tstmt_desc = typed_stmt; tstmt_loc = stmt.stmt_loc })
@@ -209,18 +247,14 @@ and check_def ctx def : typed_def =
     (Location.show def.def_loc)
     def.def_name;
   let translated_params = List.map (translate_param ctx) def.def_params in
-  let identifiers_with_params =
+  let ctx_with_params =
     List.fold_left
-      (fun id_map (name, ty) -> StringMap.add name ty id_map)
-      ctx.identifiers translated_params
+      (fun ctx (name, ty) -> Context.add_local ctx name ty)
+      ctx translated_params
   in
   let return_type = translate_type ctx def.def_return_type in
   let ctx_with_params_and_return_type =
-    {
-      ctx with
-      identifiers = identifiers_with_params;
-      return_type = Some return_type;
-    }
+    Context.set_return_type ctx_with_params (Some return_type)
   in
   let typed_stmts = check_block ctx_with_params_and_return_type def.def_body in
   {
@@ -235,7 +269,7 @@ and check_record ctx record : typed_rec =
   Debug.trace_log "%s: checking: rec %s\n"
     (Location.show record.rec_loc)
     record.rec_name;
-  match StringMap.find_opt record.rec_name ctx.types with
+  match Context.find_type ctx record.rec_name with
   | Some (Types.TRec (rec_name, fields_ref)) ->
       (* check fields *)
       let check_field field =
@@ -245,12 +279,7 @@ and check_record ctx record : typed_rec =
       fields_ref := List.map check_field record.rec_fields;
       (* check methods  *)
       let record_type = Types.TRec (rec_name, fields_ref) in
-      let ctx_with_self =
-        {
-          ctx with
-          identifiers = StringMap.add "self" record_type ctx.identifiers;
-        }
-      in
+      let ctx_with_self = Context.add_local ctx "self" record_type in
       let check_method method_def = check_def ctx_with_self method_def in
       let typed_methods = List.map check_method record.rec_methods in
       {
@@ -261,7 +290,7 @@ and check_record ctx record : typed_rec =
       }
   | _ -> failwith "Unreachable: record type not found in context"
 
-and check_toplevel ctx toplevel : context * typed_toplevel =
+and check_toplevel ctx toplevel : Context.t * typed_toplevel =
   match toplevel with
   | Toplevel_def def ->
       let typed_def = check_def ctx def in
@@ -275,27 +304,26 @@ and load_def ctx def =
   Debug.trace_log "%s: loading: def %s\n"
     (Location.show def.def_loc)
     def.def_name;
-  if StringMap.mem def.def_name ctx.identifiers then
-    error (Errors.Redeclared_identifier def.def_name) def.def_loc;
+  if Context.mem_local ctx def.def_name then
+    Context.error (Errors.Redeclared_identifier def.def_name) def.def_loc;
   let translated_params = List.map (translate_param ctx) def.def_params in
   let param_types = List.map snd translated_params in
   let return_type = translate_type ctx def.def_return_type in
   let def_type = Types.TDef (param_types, return_type) in
-  let identifiers = StringMap.add def.def_name def_type ctx.identifiers in
-  { ctx with identifiers }
+  Context.add_local ctx def.def_name def_type
 
 and load_extern ctx extern =
   Debug.trace_log "%s: loading: extern %s\n"
     (Location.show extern.extern_loc)
     extern.extern_name;
-  if StringMap.mem extern.extern_name ctx.identifiers then
-    error (Errors.Redeclared_identifier extern.extern_name) extern.extern_loc;
-  let types_with_params =
+  if Context.mem_local ctx extern.extern_name then
+    Context.error (Errors.Redeclared_identifier extern.extern_name)
+      extern.extern_loc;
+  let ctx_with_type_params =
     List.fold_left
-      (fun acc name -> StringMap.add name (Types.TParam name) acc)
-      ctx.types extern.extern_type_params
+      (fun ctx name -> Context.add_type ctx name (Types.TParam name))
+      ctx extern.extern_type_params
   in
-  let ctx_with_type_params = { ctx with types = types_with_params } in
   let param_types =
     List.map (translate_type ctx_with_type_params) extern.extern_params
   in
@@ -303,20 +331,16 @@ and load_extern ctx extern =
     translate_type ctx_with_type_params extern.extern_return_type
   in
   let extern_type = Types.TDef (param_types, return_type) in
-  let identifiers =
-    StringMap.add extern.extern_name extern_type ctx.identifiers
-  in
-  { ctx with identifiers }
+  Context.add_local ctx extern.extern_name extern_type
 
 and load_record ctx record =
   Debug.trace_log "%s: loading: rec %s\n"
     (Location.show record.rec_loc)
     record.rec_name;
-  if StringMap.mem record.rec_name ctx.types then
-    error (Errors.Redeclared_identifier record.rec_name) record.rec_loc;
+  if Context.mem_type ctx record.rec_name then
+    Context.error (Errors.Redeclared_identifier record.rec_name) record.rec_loc;
   let record_type = Types.TRec (record.rec_name, ref []) in
-  let types = StringMap.add record.rec_name record_type ctx.types in
-  let ctx_with_type = { ctx with types } in
+  let ctx_with_type = Context.add_type ctx record.rec_name record_type in
   (* load methods *)
   let load_method method_def =
     let translated_params =
@@ -328,14 +352,13 @@ and load_record ctx record =
     let method_type = Types.TDef (param_types, return_type) in
     (method_def.def_name, method_type)
   in
-  let method_map =
+  let context_with_methods =
     List.fold_left
-      (fun map (name, ty) -> StringMap.add name ty map)
-      StringMap.empty
+      (fun ctx (name, ty) -> Context.add_method ctx record.rec_name name ty)
+      ctx_with_type
       (List.map load_method record.rec_methods)
   in
-  let methods = StringMap.add record.rec_name method_map ctx.methods in
-  { ctx_with_type with methods }
+  context_with_methods
 
 and load_toplevel ctx = function
   | Toplevel_def def -> load_def ctx def
@@ -343,14 +366,7 @@ and load_toplevel ctx = function
   | Toplevel_rec record -> load_record ctx record
 
 let check entry parsed_module =
-  let initial_ctx =
-    {
-      types = Types.primitives |> StringMap.of_list;
-      identifiers = StringMap.empty;
-      methods = StringMap.empty;
-      return_type = None;
-    }
-  in
+  let initial_ctx = Context.create () in
   let type_decls, defs =
     List.partition
       (function
@@ -362,8 +378,8 @@ let check entry parsed_module =
   let ctx_with_types =
     List.fold_left load_toplevel initial_ctx ordered_toplevels
   in
-  if not (StringMap.mem entry ctx_with_types.identifiers) then
-    error (Errors.Entry_not_found entry) Location.none;
+  if not (Context.mem_local ctx_with_types entry) then
+    Context.error (Errors.Entry_not_found entry) Location.none;
   let _ctx, typed_toplevels =
     List.fold_left_map check_toplevel ctx_with_types ordered_toplevels
   in
@@ -373,4 +389,5 @@ let check entry parsed_module =
       tmodule_toplevels = typed_toplevels;
     }
   in
-  if !errors = [] then Ok typed_module else Error (List.rev !errors)
+  if !Context.errors = [] then Ok typed_module
+  else Error (List.rev !Context.errors)

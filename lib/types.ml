@@ -104,7 +104,8 @@ let rec unify t1 t2 =
       && List.length !fields1 = List.length !fields2
       && List.for_all2
            (fun (n1, t1) (n2, t2) -> n1 = n2 && unify t1 t2)
-           !fields1 !fields2
+           (List.sort compare !fields1)
+           (List.sort compare !fields2)
   | TBool, TBool | TInt, TInt | TStr, TStr -> true
   | TParam name1, TParam name2 when name1 = name2 -> true
   | _ -> false
