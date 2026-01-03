@@ -75,7 +75,8 @@ class TestRunner
       skip: false,
       skip_reason: "",
       result: "success",
-      output: ""
+      output: "",
+      output_type: :include
     }
 
     if lines[0]&.include?("skip")
@@ -85,7 +86,14 @@ class TestRunner
     end
 
     metadata[:result] = lines[0]&.split(":")&.last&.strip || "success"
-    metadata[:output] = lines[1]&.split(":")&.last&.strip || ""
+
+    if lines[1]&.include?("output-regex")
+      metadata[:output_type] = :regex
+      metadata[:output] = lines[1]&.split(":")&.last&.strip || ""
+    elsif lines[1]&.include?("output")
+      metadata[:output_type] = :include
+      metadata[:output] = lines[1]&.split(":")&.last&.strip || ""
+    end
 
     metadata
   rescue => e
@@ -101,11 +109,15 @@ class TestRunner
 
     return true if metadata[:output].empty?
 
-    begin
-      stdout.strip =~ Regexp.new(metadata[:output])
-    rescue RegexpError => e
-      puts "#{YELLOW}Invalid regex pattern '#{metadata[:output]}': #{e.message}#{RESET}"
-      false
+    if metadata[:output_type] == :regex
+      begin
+        stdout.strip =~ Regexp.new(metadata[:output])
+      rescue RegexpError => e
+        puts "#{YELLOW}Invalid regex pattern '#{metadata[:output]}': #{e.message}#{RESET}"
+        false
+      end
+    else
+      stdout.include?(metadata[:output])
     end
   end
 

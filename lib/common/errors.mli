@@ -12,6 +12,11 @@ type type_error =
   | Redeclared_identifier of string
   | Not_a_record of Types.t
   | Record_field_not_found of string * Types.t
+  | Record_field_mismatch of {
+      record_name : string;
+      expected_fields : (string * Types.t) list;
+      actual_fields : (string * Types.t) list;
+    }
   | Return_outside_function
 
 type error =

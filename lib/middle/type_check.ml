@@ -43,20 +43,31 @@ let rec check_expr env (expr : parsed_expr) : typed_expr =
     let typed_rec_fields =
       List.map (fun (fname, fexpr) -> (fname, check_expr env fexpr)) rec_fields
     in
-    let rec_field_types =
-      List.map
-        (fun (fname, fexpr) -> (fname, fexpr.texpr_type))
-        typed_rec_fields
-    in
     let result_ty =
-      match Env.find_type env rec_type_name with
-      | Some (Types.TRec _ as rec_type) ->
-          unification expr.expr_loc rec_type
-            (Types.TRec (rec_type_name, ref rec_field_types));
-          rec_type
-      | Some other_type ->
-          Env.error (Errors.Not_a_record other_type) expr.expr_loc;
-          Types.fresh_var ()
+      match Env.find_record env rec_type_name with
+      | Some expected_fields ->
+          let check_field (fname, fexpr) =
+            match List.assoc_opt fname expected_fields with
+            | Some expected_type ->
+                unification expr.expr_loc fexpr.texpr_type expected_type;
+                true
+            | None -> false
+          in
+          if
+            (not (List.for_all check_field typed_rec_fields))
+            || List.length expected_fields <> List.length typed_rec_fields
+          then
+            Env.error
+              (Errors.Record_field_mismatch
+                 {
+                   record_name = rec_type_name;
+                   expected_fields;
+                   actual_fields =
+                     typed_rec_fields
+                     |> List.map (fun (n, e) -> (n, e.texpr_type));
+                 })
+              expr.expr_loc;
+          Types.TRec rec_type_name
       | None ->
           Env.error (Errors.Type_not_found rec_type_name) expr.expr_loc;
           Types.fresh_var ()
@@ -68,9 +79,14 @@ let rec check_expr env (expr : parsed_expr) : typed_expr =
     let typed_object = check_expr env member_object in
     let is_method, field_type =
       match typed_object.texpr_type with
-      | Types.TRec (rec_name, fields_ref) -> (
+      | Types.TRec rec_name -> (
           (* check if it is a record field *)
-          match List.assoc_opt member_name !fields_ref with
+          let fields =
+            match Env.find_record env rec_name with
+            | Some flds -> flds
+            | None -> []
+          in
+          match List.assoc_opt member_name fields with
           | Some field_type -> (false, field_type)
           | None -> (
               match Env.find_method env rec_name member_name with
@@ -205,30 +221,29 @@ and check_def env def : typed_def =
     tdef_loc = def.def_loc;
   }
 
-and check_record env record : typed_rec =
+and check_record env record : Env.t * typed_rec =
   Debug.trace_log "%s: checking: rec %s\n"
     (Location.show record.rec_loc)
     record.rec_name;
-  match Env.find_type env record.rec_name with
-  | Some (Types.TRec (rec_name, fields_ref)) ->
-      (* check fields *)
-      let check_field field =
-        let field_type = translate_type env field.field_type in
-        (field.field_name, field_type)
-      in
-      fields_ref := List.map check_field record.rec_fields;
-      (* check methods  *)
-      let record_type = Types.TRec (rec_name, fields_ref) in
-      let env_with_self = Env.add_local env "self" record_type in
-      let check_method method_def = check_def env_with_self method_def in
-      let typed_methods = List.map check_method record.rec_methods in
-      {
-        trec_name = record.rec_name;
-        trec_fields = !fields_ref;
-        trec_methods = typed_methods;
-        trec_loc = record.rec_loc;
-      }
-  | _ -> failwith "Unreachable: record type not found in env"
+  (* check fields *)
+  let check_field field =
+    let field_type = translate_type env field.field_type in
+    (field.field_name, field_type)
+  in
+  let fields = List.map check_field record.rec_fields in
+  let env_with_record = Env.add_record env record.rec_name fields in
+  (* check methods  *)
+  let record_type = Types.TRec record.rec_name in
+  let env_with_self = Env.add_local env_with_record "self" record_type in
+  let check_method method_def = check_def env_with_self method_def in
+  let typed_methods = List.map check_method record.rec_methods in
+  ( env_with_record,
+    {
+      trec_name = record.rec_name;
+      trec_fields = fields;
+      trec_methods = typed_methods;
+      trec_loc = record.rec_loc;
+    } )
 
 and check_toplevel env toplevel : Env.t * typed_toplevel =
   match toplevel with
@@ -237,8 +252,8 @@ and check_toplevel env toplevel : Env.t * typed_toplevel =
       (env, ToplevelT_def typed_def)
   | Toplevel_extern extern -> (env, ToplevelT_extern extern)
   | Toplevel_rec record ->
-      let typed_record = check_record env record in
-      (env, ToplevelT_rec typed_record)
+      let env', typed_record = check_record env record in
+      (env', ToplevelT_rec typed_record)
 
 and load_def env def =
   Debug.trace_log "%s: loading: def %s\n"
@@ -279,7 +294,7 @@ and load_record env record =
     record.rec_name;
   if Env.mem_type env record.rec_name then
     Env.error (Errors.Redeclared_identifier record.rec_name) record.rec_loc;
-  let record_type = Types.TRec (record.rec_name, ref []) in
+  let record_type = Types.TRec record.rec_name in
   let env_with_type = Env.add_type env record.rec_name record_type in
   (* load methods *)
   let load_method method_def =

@@ -3,6 +3,7 @@ module StringMap = Map.Make (String)
 type t = {
   types : Types.t StringMap.t;
   locals : Types.t StringMap.t;
+  records : (string * Types.t) list StringMap.t;
   methods : Types.t StringMap.t StringMap.t;
   return_type : Types.t option;
 }
@@ -14,6 +15,7 @@ let create () =
   {
     types = Types.primitives |> StringMap.of_list;
     locals = StringMap.empty;
+    records = StringMap.empty;
     methods = StringMap.empty;
     return_type = None;
   }
@@ -36,6 +38,12 @@ let add_local ctx name ty =
   { ctx with locals = StringMap.add name ty ctx.locals }
 
 let add_type ctx name ty = { ctx with types = StringMap.add name ty ctx.types }
+
+let add_record ctx name fields =
+  let updated_records = StringMap.add name fields ctx.records in
+  { ctx with records = updated_records }
+
+let find_record ctx name = StringMap.find_opt name ctx.records
 
 let add_method ctx rec_name method_name ty =
   let method_map =

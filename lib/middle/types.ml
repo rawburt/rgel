@@ -6,7 +6,7 @@ type t =
   | TDef of t list * t
   | TVar of t option ref * int
   | TParam of string
-  | TRec of string * (string * t) list ref
+  | TRec of string
 
 let primitives =
   [ ("unit", TUnit); ("bool", TBool); ("int", TInt); ("str", TStr) ]
@@ -30,14 +30,7 @@ let show ty =
     | TVar ({ contents = Some t }, _) -> show_aux t
     | TVar ({ contents = None }, id) -> "$" ^ string_of_int id
     | TParam name -> name
-    | TRec (name, fields) ->
-        let field_strs =
-          !fields
-          |> List.map (fun (fname, ftype) ->
-                 Printf.sprintf "%s: %s" fname (show_aux ftype))
-        in
-        let fields_str = String.concat ", " field_strs in
-        Printf.sprintf "%s(%s)" name fields_str
+    | TRec name -> name
   in
   show_aux ty
 
@@ -64,11 +57,7 @@ let instantiate ty =
             let tv = fresh_var () in
             Hashtbl.add tbl name tv;
             tv)
-    | TRec (name, fields) ->
-        let new_fields =
-          !fields |> List.map (fun (name, ty) -> (name, aux ty))
-        in
-        TRec (name, ref new_fields)
+    | TRec name -> TRec name
   in
   aux ty
 
@@ -77,8 +66,7 @@ let rec occurs id ty =
   | TVar ({ contents = None }, id1) -> id1 = id
   | TVar ({ contents = Some t }, _) -> occurs id t
   | TDef (params, ret) -> List.exists (occurs id) params || occurs id ret
-  | TRec (_, fields_ref) ->
-      List.exists (fun (_, field_ty) -> occurs id field_ty) !fields_ref
+  | TRec _name -> false
   | TBool | TInt | TStr | TUnit | TParam _ -> false
 
 let rec unify t1 t2 =
@@ -99,13 +87,7 @@ let rec unify t1 t2 =
       List.length args1 = List.length args2
       && List.for_all2 unify args1 args2
       && unify ret1 ret2
-  | TRec (name1, fields1), TRec (name2, fields2) ->
-      name1 = name2
-      && List.length !fields1 = List.length !fields2
-      && List.for_all2
-           (fun (n1, t1) (n2, t2) -> n1 = n2 && unify t1 t2)
-           (List.sort compare !fields1)
-           (List.sort compare !fields2)
-  | TBool, TBool | TInt, TInt | TStr, TStr -> true
+  | TRec name1, TRec name2 when name1 = name2 -> true
+  | TUnit, TUnit | TBool, TBool | TInt, TInt | TStr, TStr -> true
   | TParam name1, TParam name2 when name1 = name2 -> true
   | _ -> false

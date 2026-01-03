@@ -52,7 +52,7 @@ and emit_call_expr ffi_map { call_def; call_args } =
       let self_str = emit_expr ffi_map member_object in
       let rec_name =
         match member_object.texpr_type with
-        | Types.TRec (name, _) -> name
+        | Types.TRec name -> name
         | _ -> failwith "Expected member object to be of record type"
       in
       let method_func = Printf.sprintf "rgel_%s_%s" rec_name member_name in

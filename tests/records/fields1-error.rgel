@@ -1,0 +1,11 @@
+# test: error
+# output: expected Person(age: int, name: string) but got Person(name: string)
+
+rec Person do
+  age: int
+  name: str
+end
+
+def main() do
+  var p: Person = Person(name: "robert")
+end
