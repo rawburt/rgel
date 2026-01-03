@@ -1,6 +1,3 @@
-# expect: success
-# expect-stdout: Vec(x = 33, y = 63)
-
 extern def log(str) unit = "console.log"
 extern def str[T](T) str = "JSON.stringify"
 

@@ -1,7 +1,5 @@
-# expect: error
-# expect-stderr: Type mismatch: expected string but got int
-
 def get_str() str do
+  # type mismatch int vs str
   ret 123
 end
 

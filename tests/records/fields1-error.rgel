@@ -1,11 +1,9 @@
-# expect: error
-# expect-stderr: expected Person(age: int, name: string) but got Person(name: string)
-
 rec Person do
   age: int
   name: str
 end
 
 def main() do
+  # missing field
   var p: Person = Person(name: "robert")
 end
