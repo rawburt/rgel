@@ -2,6 +2,7 @@
 # output:
 
 def main() do
+  # overloaded for int and str
   var a: int = 1 + 2
   var b : str = "a" + "b"
 end
