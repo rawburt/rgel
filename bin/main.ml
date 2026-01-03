@@ -3,6 +3,7 @@ let input_files = ref []
 let output_file = ref "out.js"
 let entry = ref "main"
 let quickjs = ref false
+let runtimejs = ref "./support/dist/bundle.js"
 let anon_fun filename = input_files := filename :: !input_files
 
 let speclist =
@@ -14,6 +15,9 @@ let speclist =
       Arg.Set_string entry,
       Printf.sprintf "Specify entry function (default: %s)" !entry );
     ("-quickjs", Arg.Set quickjs, "Use QuickJS runtime");
+    ( "-runtimejs",
+      Arg.Set_string runtimejs,
+      Printf.sprintf "Specify runtime JS file (default: %s)" !runtimejs );
     ("-trace", Arg.Set Rgel.Debug.trace, "Enable trace output");
   ]
 
@@ -64,7 +68,7 @@ let () =
       let typed_module = Rgel.Type_check.check env parsed_module in
       if not (Rgel.Errors.is_error_log_empty ()) then handle_errors ()
       else
-        let output_code = Rgel.Codegen.emit !entry typed_module in
+        let output_code = Rgel.Codegen.emit !runtimejs !entry typed_module in
         let oc = open_out !output_file in
         output_string oc output_code;
         close_out oc;

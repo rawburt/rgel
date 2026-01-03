@@ -118,18 +118,19 @@ let load_extern_names ffi_map toplevel =
       StringMap.add extern.extern_name extern.extern_foreign_name ffi_map
   | _ -> ffi_map
 
-let emit entry typed_module =
+let emit runtimejs entry typed_module =
   let ffi_map =
     List.fold_left load_extern_names StringMap.empty
       typed_module.tmodule_toplevels
   in
   let bundle_js =
     try
-      let ic = open_in "support/dist/bundle.js" in
+      let ic = open_in runtimejs in
       let content = really_input_string ic (in_channel_length ic) in
       close_in ic;
       content ^ "\n"
-    with Sys_error _ -> ""
+    with Sys_error _ ->
+      failwith (Printf.sprintf "Could not open runtime JS file: %s" runtimejs)
   in
   let module_codegen = emit_module ffi_map typed_module in
   let entry_code = Printf.sprintf "\n%s();" entry in

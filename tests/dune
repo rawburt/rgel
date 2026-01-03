@@ -1,4 +1,5 @@
 (cram
  (deps
   %{bin:rgel}
+  ../support/dist/bundle.js
   (source_tree .)))
