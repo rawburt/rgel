@@ -1,0 +1,8 @@
+# expect: error
+# expect-stderr: Identifier not found: not_real
+
+def main() do
+  var i: int = not_real()
+  var b: str = i + "hello"
+  var c: int = i + 3
+end

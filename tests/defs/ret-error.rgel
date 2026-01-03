@@ -1,0 +1,10 @@
+# expect: error
+# expect-stderr: Type mismatch: expected string but got int
+
+def get_str() str do
+  ret 123
+end
+
+def main() do
+  var i: str = get_str()
+end

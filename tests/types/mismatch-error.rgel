@@ -3,4 +3,6 @@
 
 def main() do
   var a: int = 1 + "hello"
+  var b: int = 2 + a
+  var c: int = 3 + d * 2
 end

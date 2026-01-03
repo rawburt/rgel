@@ -2,6 +2,8 @@
 
 (using menhir 3.0)
 
+(cram enable)
+
 (name rgel)
 
 (generate_opam_files true)
