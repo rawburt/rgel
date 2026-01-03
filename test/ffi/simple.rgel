@@ -1,0 +1,8 @@
+# test: success
+# output: 123
+
+extern def log(str) unit = "console.log"
+
+def main() do
+  log("123")
+end

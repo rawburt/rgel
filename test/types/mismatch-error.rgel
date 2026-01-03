@@ -1,0 +1,6 @@
+# test: error
+# output: Type mismatch
+
+def main() do
+  var a: int = 1 + "hello"
+end

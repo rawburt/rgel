@@ -1,0 +1,7 @@
+# test: success
+# output:
+
+def main() do
+  var a: int = 1 + 2
+  var b : str = "a" + "b"
+end

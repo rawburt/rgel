@@ -1,3 +1,4 @@
+# test: skip
 extern def log(str) unit = "console.log"
 extern def str[T](T) str = "JSON.stringify"
 

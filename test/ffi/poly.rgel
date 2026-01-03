@@ -1,0 +1,18 @@
+# test: success
+# output: true(\n)?{5}
+
+extern def log(str) unit = "console.log"
+extern def str[T](T) str = "JSON.stringify"
+
+rec Point do
+  x: int
+end
+
+def main() do
+  log(str(456 == 456))
+  log(str(true == true))
+  #log(str(true != false))
+  log(str(Point(x:123) == Point(x:123)))
+  var a: str = str(1) + "1"
+  log(str(a == "11"))
+end
