@@ -13,91 +13,85 @@ let check_literal = function
   | Lit_int _ -> Types.TInt
   | Lit_string _ -> Types.TStr
 
-let rec check_expr env (expr : parsed_expr) : typed_expr =
-  let check_call_expr (call_expr : Parsed_ast.call_expr) =
-    let typed_args = List.map (check_expr env) call_expr.call_args in
-    let arg_types = List.map (fun arg -> arg.texpr_type) typed_args in
-    let typed_def = check_expr env call_expr.call_def in
-    match typed_def.texpr_type with
-    | Types.TDef (_, return_type) ->
-        let tvar = Types.fresh_var () in
-        unification expr.expr_loc typed_def.texpr_type
-          (Types.TDef (arg_types, tvar));
-        ( TExpr_call { call_def = typed_def; call_args = typed_args },
-          return_type )
+let rec check_call_expr env (call_expr : Parsed_ast.call_expr) loc =
+  let typed_args = List.map (check_expr env) call_expr.call_args in
+  let arg_types = List.map (fun arg -> arg.texpr_type) typed_args in
+  let typed_def = check_expr env call_expr.call_def in
+  match typed_def.texpr_type with
+  | Types.TDef (_, return_type) ->
+      let tvar = Types.fresh_var () in
+      unification loc typed_def.texpr_type (Types.TDef (arg_types, tvar));
+      (TExpr_call { call_def = typed_def; call_args = typed_args }, return_type)
+  | _ ->
+      Env.error (Errors.Not_a_function typed_def.texpr_type) loc;
+      ( TExpr_call { call_def = typed_def; call_args = typed_args },
+        Types.fresh_var () )
+
+and check_rec_expr env rec_type_name rec_fields loc =
+  let typed_rec_fields =
+    List.map (fun (fname, fexpr) -> (fname, check_expr env fexpr)) rec_fields
+  in
+  let result_ty =
+    match Env.find_record env rec_type_name with
+    | Some expected_fields ->
+        let check_field (fname, fexpr) =
+          match List.assoc_opt fname expected_fields with
+          | Some expected_type ->
+              unification loc fexpr.texpr_type expected_type;
+              true
+          | None -> false
+        in
+        if
+          (not (List.for_all check_field typed_rec_fields))
+          || List.length expected_fields <> List.length typed_rec_fields
+        then
+          Env.error
+            (Errors.Record_field_mismatch
+               {
+                 record_name = rec_type_name;
+                 expected_fields;
+                 actual_fields =
+                   typed_rec_fields
+                   |> List.map (fun (n, e) -> (n, e.texpr_type));
+               })
+            loc;
+        Types.TRec rec_type_name
+    | None ->
+        Env.error (Errors.Type_not_found rec_type_name) loc;
+        Types.fresh_var ()
+  in
+  (TExpr_rec { rec_fields = typed_rec_fields }, result_ty)
+
+and check_member_access env member_object member_name loc =
+  let typed_object = check_expr env member_object in
+  let is_method, field_type =
+    match typed_object.texpr_type with
+    | Types.TRec rec_name -> (
+        (* check if it is a record field *)
+        let fields =
+          match Env.find_record env rec_name with
+          | Some flds -> flds
+          | None -> []
+        in
+        match List.assoc_opt member_name fields with
+        | Some field_type -> (false, field_type)
+        | None -> (
+            match Env.find_method env rec_name member_name with
+            | Some method_type -> (true, method_type)
+            | None ->
+                Env.error
+                  (Errors.Record_field_not_found
+                     (member_name, typed_object.texpr_type))
+                  loc;
+                (false, Types.fresh_var ())))
     | _ ->
-        Env.error (Errors.Not_a_function typed_def.texpr_type) expr.expr_loc;
-        ( TExpr_call { call_def = typed_def; call_args = typed_args },
-          Types.fresh_var () )
+        Env.error (Errors.Not_a_record typed_object.texpr_type) loc;
+        (false, Types.fresh_var ())
   in
+  ( TExpr_member_access { member_object = typed_object; member_name; is_method },
+    field_type )
 
-  let check_rec_expr rec_type_name rec_fields =
-    let typed_rec_fields =
-      List.map (fun (fname, fexpr) -> (fname, check_expr env fexpr)) rec_fields
-    in
-    let result_ty =
-      match Env.find_record env rec_type_name with
-      | Some expected_fields ->
-          let check_field (fname, fexpr) =
-            match List.assoc_opt fname expected_fields with
-            | Some expected_type ->
-                unification expr.expr_loc fexpr.texpr_type expected_type;
-                true
-            | None -> false
-          in
-          if
-            (not (List.for_all check_field typed_rec_fields))
-            || List.length expected_fields <> List.length typed_rec_fields
-          then
-            Env.error
-              (Errors.Record_field_mismatch
-                 {
-                   record_name = rec_type_name;
-                   expected_fields;
-                   actual_fields =
-                     typed_rec_fields
-                     |> List.map (fun (n, e) -> (n, e.texpr_type));
-                 })
-              expr.expr_loc;
-          Types.TRec rec_type_name
-      | None ->
-          Env.error (Errors.Type_not_found rec_type_name) expr.expr_loc;
-          Types.fresh_var ()
-    in
-    (TExpr_rec { rec_fields = typed_rec_fields }, result_ty)
-  in
-
-  let check_member_access member_object member_name =
-    let typed_object = check_expr env member_object in
-    let is_method, field_type =
-      match typed_object.texpr_type with
-      | Types.TRec rec_name -> (
-          (* check if it is a record field *)
-          let fields =
-            match Env.find_record env rec_name with
-            | Some flds -> flds
-            | None -> []
-          in
-          match List.assoc_opt member_name fields with
-          | Some field_type -> (false, field_type)
-          | None -> (
-              match Env.find_method env rec_name member_name with
-              | Some method_type -> (true, method_type)
-              | None ->
-                  Env.error
-                    (Errors.Record_field_not_found
-                       (member_name, typed_object.texpr_type))
-                    expr.expr_loc;
-                  (false, Types.fresh_var ())))
-      | _ ->
-          Env.error (Errors.Not_a_record typed_object.texpr_type) expr.expr_loc;
-          (false, Types.fresh_var ())
-    in
-    ( TExpr_member_access
-        { member_object = typed_object; member_name; is_method },
-      field_type )
-  in
-
+and check_expr env (expr : parsed_expr) : typed_expr =
   let texpr_desc, texpr_type =
     match expr.expr_desc with
     | Expr_literal lit -> (TExpr_literal lit, check_literal lit)
@@ -110,9 +104,9 @@ let rec check_expr env (expr : parsed_expr) : typed_expr =
               Types.fresh_var ()
         in
         (TExpr_variable ident, ty)
-    | Expr_call call_expr -> check_call_expr call_expr
+    | Expr_call call_expr -> check_call_expr env call_expr expr.expr_loc
     | Expr_rec { rec_type_name; rec_fields } ->
-        check_rec_expr rec_type_name rec_fields
+        check_rec_expr env rec_type_name rec_fields expr.expr_loc
     | Expr_binary_op { binop_left; binop_operator; binop_right } ->
         let typed_binop_left = check_expr env binop_left in
         let typed_binop_right = check_expr env binop_right in
@@ -146,7 +140,7 @@ let rec check_expr env (expr : parsed_expr) : typed_expr =
             },
           result_ty )
     | Expr_member_access { member_object; member_name } ->
-        check_member_access member_object member_name
+        check_member_access env member_object member_name expr.expr_loc
   in
   { texpr_desc; texpr_type; texpr_loc = expr.expr_loc }
 
@@ -249,9 +243,7 @@ and check_toplevel env toplevel : Env.t * typed_toplevel =
 
 let check env parsed_module =
   let top = ordered_toplevels parsed_module.module_toplevels in
-  let _final_env, typed_toplevels =
-    List.fold_left_map check_toplevel env top
-  in
+  let _final_env, typed_toplevels = List.fold_left_map check_toplevel env top in
   let typed_module =
     {
       tmodule_name = parsed_module.module_name;
