@@ -46,6 +46,10 @@ let parse_module filename =
   let module_toplevels = parse_file filename in
   Rgel.Parsed_ast.{ module_name; module_toplevels }
 
+let handle_errors errors =
+  List.iter (fun error -> print_endline (Rgel.Errors.show_error error)) errors;
+  exit 1
+
 let () =
   Arg.parse speclist anon_fun usage_msg;
   if List.length !input_files <> 1 then (
@@ -54,18 +58,17 @@ let () =
   else
     let input_file = List.hd !input_files in
     let parsed_module = parse_module input_file in
-    match Rgel.Type_check.check !entry parsed_module with
-    | Error errors ->
-        List.iter
-          (fun error -> print_endline (Rgel.Errors.show_error error))
-          errors;
-        exit 1
-    | Ok typed_module ->
-        let output_code = Rgel.Codegen.emit !entry typed_module in
-        let oc = open_out !output_file in
-        output_string oc output_code;
-        close_out oc;
-        flush_all ();
-        if !quickjs then
-          let _ = Sys.command (Printf.sprintf "qjs %s" !output_file) in
-          ()
+    match Rgel.Type_loader.load_module !entry parsed_module with
+    | Error errors -> handle_errors errors
+    | Ok env -> (
+        match Rgel.Type_check.check env parsed_module with
+        | Error errors -> handle_errors errors
+        | Ok typed_module ->
+            let output_code = Rgel.Codegen.emit !entry typed_module in
+            let oc = open_out !output_file in
+            output_string oc output_code;
+            close_out oc;
+            flush_all ();
+            if !quickjs then
+              let _ = Sys.command (Printf.sprintf "qjs %s" !output_file) in
+              ())

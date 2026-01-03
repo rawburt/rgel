@@ -1,4 +1,4 @@
-module StringMap = Map.Make (String)
+open Common
 
 type t = {
   types : Types.t StringMap.t;

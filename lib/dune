@@ -6,6 +6,7 @@
   (pps ppx_deriving.show))
  (modules
   debug
+  common
   location
   parsed_ast
   typed_ast
@@ -13,6 +14,8 @@
   lexer
   errors
   type_check
+  type_loader
+  type_common
   types
   codegen
   env))

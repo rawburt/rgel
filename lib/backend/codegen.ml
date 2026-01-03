@@ -1,5 +1,5 @@
 open Typed_ast
-module StringMap = Map.Make (String)
+open Common
 
 let emit_literal = function
   | Parsed_ast.Lit_bool b -> if b then "true" else "false"

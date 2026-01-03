@@ -1,20 +1,12 @@
 open Parsed_ast
 open Typed_ast
+open Type_common
 
 let unification loc t1 t2 =
   Debug.trace_log "%s: unification: (%s) and (%s)\n" (Location.show loc)
     (Types.show t1) (Types.show t2);
   if Types.unify t1 t2 then ()
   else Env.error (Errors.Type_mismatch (t1, t2)) loc
-
-let translate_type env parsed_type =
-  match parsed_type.type_desc with
-  | Type_name name -> (
-      match Env.find_type env name with
-      | Some t -> t
-      | None ->
-          Env.error (Errors.Type_not_found name) parsed_type.type_loc;
-          Types.fresh_var ())
 
 let check_literal = function
   | Lit_bool _ -> Types.TBool
@@ -255,88 +247,10 @@ and check_toplevel env toplevel : Env.t * typed_toplevel =
       let env', typed_record = check_record env record in
       (env', ToplevelT_rec typed_record)
 
-and load_def env def =
-  Debug.trace_log "%s: loading: def %s\n"
-    (Location.show def.def_loc)
-    def.def_name;
-  if Env.mem_local env def.def_name then
-    Env.error (Errors.Redeclared_identifier def.def_name) def.def_loc;
-  let translated_params = List.map (translate_param env) def.def_params in
-  let param_types = List.map snd translated_params in
-  let return_type = translate_type env def.def_return_type in
-  let def_type = Types.TDef (param_types, return_type) in
-  Env.add_local env def.def_name def_type
-
-and load_extern env extern =
-  Debug.trace_log "%s: loading: extern %s\n"
-    (Location.show extern.extern_loc)
-    extern.extern_name;
-  if Env.mem_local env extern.extern_name then
-    Env.error (Errors.Redeclared_identifier extern.extern_name)
-      extern.extern_loc;
-  let env_with_type_params =
-    List.fold_left
-      (fun env name -> Env.add_type env name (Types.TParam name))
-      env extern.extern_type_params
-  in
-  let param_types =
-    List.map (translate_type env_with_type_params) extern.extern_params
-  in
-  let return_type =
-    translate_type env_with_type_params extern.extern_return_type
-  in
-  let extern_type = Types.TDef (param_types, return_type) in
-  Env.add_local env extern.extern_name extern_type
-
-and load_record env record =
-  Debug.trace_log "%s: loading: rec %s\n"
-    (Location.show record.rec_loc)
-    record.rec_name;
-  if Env.mem_type env record.rec_name then
-    Env.error (Errors.Redeclared_identifier record.rec_name) record.rec_loc;
-  let record_type = Types.TRec record.rec_name in
-  let env_with_type = Env.add_type env record.rec_name record_type in
-  (* load methods *)
-  let load_method method_def =
-    let translated_params =
-      List.map (translate_param env_with_type) method_def.def_params
-    in
-    let param_types = List.map snd translated_params in
-    let return_type = translate_type env_with_type method_def.def_return_type in
-    (* self is first param when checking locally but not to the external world so its left out here *)
-    let method_type = Types.TDef (param_types, return_type) in
-    (method_def.def_name, method_type)
-  in
-  let env_with_methods =
-    List.fold_left
-      (fun env (name, ty) -> Env.add_method env record.rec_name name ty)
-      env_with_type
-      (List.map load_method record.rec_methods)
-  in
-  env_with_methods
-
-and load_toplevel env = function
-  | Toplevel_def def -> load_def env def
-  | Toplevel_extern extern -> load_extern env extern
-  | Toplevel_rec record -> load_record env record
-
-let check entry parsed_module =
-  let initial_env = Env.create () in
-  let type_decls, defs =
-    List.partition
-      (function
-        | Toplevel_extern _ | Toplevel_rec _ -> true | Toplevel_def _ -> false)
-      parsed_module.module_toplevels
-  in
-  (* process in order: type declarations first, then definitions *)
-  let ordered_toplevels = type_decls @ defs in
-  let env_with_types =
-    List.fold_left load_toplevel initial_env ordered_toplevels
-  in
-  if not (Env.mem_local env_with_types entry) then
-    Env.error (Errors.Entry_not_found entry) Location.none;
-  let _env, typed_toplevels =
-    List.fold_left_map check_toplevel env_with_types ordered_toplevels
+let check env parsed_module =
+  let top = ordered_toplevels parsed_module.module_toplevels in
+  let _final_env, typed_toplevels =
+    List.fold_left_map check_toplevel env top
   in
   let typed_module =
     {
