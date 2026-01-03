@@ -8,6 +8,9 @@ type t =
   | TParam of string
   | TRec of string * (string * t) list ref
 
+let primitives =
+  [ ("unit", TUnit); ("bool", TBool); ("int", TInt); ("str", TStr) ]
+
 let fresh_var =
   let counter = ref 0 in
   fun () ->

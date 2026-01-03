@@ -345,14 +345,7 @@ and load_toplevel ctx = function
 let check entry parsed_module =
   let initial_ctx =
     {
-      types =
-        [
-          ("unit", Types.TUnit);
-          ("bool", Types.TBool);
-          ("int", Types.TInt);
-          ("str", Types.TStr);
-        ]
-        |> StringMap.of_list;
+      types = Types.primitives |> StringMap.of_list;
       identifiers = StringMap.empty;
       methods = StringMap.empty;
       return_type = None;
