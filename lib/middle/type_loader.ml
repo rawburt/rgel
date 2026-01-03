@@ -10,7 +10,8 @@ let load_def env def =
     (Location.show def.def_loc)
     def.def_name;
   if Env.mem_local env def.def_name then
-    Env.error (Errors.Redeclared_identifier def.def_name) def.def_loc;
+    Errors.log_type_error (Errors.Redeclared_identifier def.def_name)
+      def.def_loc;
   let translated_params = List.map (translate_param env) def.def_params in
   let param_types = List.map snd translated_params in
   let return_type = translate_type env def.def_return_type in
@@ -22,7 +23,7 @@ let load_extern env extern =
     (Location.show extern.extern_loc)
     extern.extern_name;
   if Env.mem_local env extern.extern_name then
-    Env.error (Errors.Redeclared_identifier extern.extern_name)
+    Errors.log_type_error (Errors.Redeclared_identifier extern.extern_name)
       extern.extern_loc;
   let env_with_type_params =
     List.fold_left
@@ -43,7 +44,8 @@ let load_record env record =
     (Location.show record.rec_loc)
     record.rec_name;
   if Env.mem_type env record.rec_name then
-    Env.error (Errors.Redeclared_identifier record.rec_name) record.rec_loc;
+    Errors.log_type_error (Errors.Redeclared_identifier record.rec_name)
+      record.rec_loc;
   let record_type = Types.TRec record.rec_name in
   let env_with_type = Env.add_type env record.rec_name record_type in
   (* load methods *)
@@ -75,6 +77,5 @@ let load_module entry parsed_module =
   let top = ordered_toplevels parsed_module.module_toplevels in
   let env_with_types = List.fold_left load_toplevel env top in
   if not (Env.mem_local env_with_types entry) then
-    Env.error (Errors.Entry_not_found entry) Location.none;
-  if Env.get_errors () <> [] then Error (Env.get_errors ())
-  else Ok env_with_types
+    Errors.log_type_error (Errors.Entry_not_found entry) Location.none;
+  env_with_types

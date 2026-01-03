@@ -1,5 +1,5 @@
-# test: success
-# output: 3 == 3
+# expect: success
+# expect-stdout: 3 == 3
 
 extern def log(str) unit = "console.log"
 extern def str[T](T) str = "JSON.stringify"

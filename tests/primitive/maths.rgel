@@ -1,5 +1,5 @@
-# test: success
-# output: 5 / 2 == 2
+# expect: success
+# expect-stdout: 5 / 2 == 2
 
 extern def log(str) unit = "console.log"
 extern def str[T](T) str = "JSON.stringify"

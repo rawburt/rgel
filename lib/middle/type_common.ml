@@ -6,7 +6,8 @@ let translate_type env parsed_type =
       match Env.find_type env name with
       | Some t -> t
       | None ->
-          Env.error (Errors.Type_not_found name) parsed_type.type_loc;
+          Errors.log_type_error (Errors.Type_not_found name)
+            parsed_type.type_loc;
           Types.fresh_var ())
 
 let ordered_toplevels toplevels =

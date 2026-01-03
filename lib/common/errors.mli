@@ -27,3 +27,7 @@ exception CompilerError of error
 
 val throw_syntax_error : syntax_error -> Location.t -> 'a
 val show_error : error -> string
+val log_syntax_error : syntax_error -> Location.t -> unit
+val log_type_error : type_error -> Location.t -> unit
+val is_error_log_empty : unit -> bool
+val display_error_log : unit -> unit

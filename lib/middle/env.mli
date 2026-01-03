@@ -13,5 +13,3 @@ val mem_local : t -> string -> bool
 val add_local : t -> string -> Types.t -> t
 val set_return_type : t -> Types.t -> t
 val get_return_type : t -> Types.t option
-val error : Errors.type_error -> Location.t -> unit
-val get_errors : unit -> Errors.error list

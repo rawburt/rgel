@@ -1,4 +1,4 @@
-# test: skip
+# expect: skip
 
 # this file is mostly a playground and not a real test, hence the skip label
 

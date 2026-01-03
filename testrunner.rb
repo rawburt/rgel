@@ -57,42 +57,53 @@ class TestRunner
       return
     end
 
-    stdout, status = Open3.capture2("#{BUILD} -entry main -quickjs #{file}")
+    stdout, stderr, status = Open3.capture3("#{BUILD} -entry main -quickjs #{file}")
 
-    if matches_expectation?(metadata, stdout, status)
+    if matches_expectation?(metadata, stdout, stderr, status)
       pass(file)
     else
-      fail(file, metadata, stdout, status)
+      fail(file, metadata, stdout, stderr, status)
     end
   rescue => e
-    fail(file, metadata, "Exception: #{e.message}", nil)
+    fail(file, metadata, "Exception: #{e.message}", "", nil)
   end
 
   def parse_metadata(file)
-    lines = File.readlines(file).first(3)
+    lines = File.readlines(file).first(5)
 
     metadata = {
       skip: false,
       skip_reason: "",
       result: "success",
-      output: "",
-      output_type: :include
+      stdout: "",
+      stdout_type: :literal,
+      stderr: "",
+      stderr_type: :literal
     }
 
-    if lines[0]&.include?("skip")
-      metadata[:skip] = true
-      metadata[:skip_reason] = lines[0].split("skip").last&.strip || ""
-      return metadata
-    end
+    lines.each do |line|
+      next unless line.start_with?("#")
 
-    metadata[:result] = lines[0]&.split(":")&.last&.strip || "success"
-
-    if lines[1]&.include?("output-regex")
-      metadata[:output_type] = :regex
-      metadata[:output] = lines[1]&.split(":")&.last&.strip || ""
-    elsif lines[1]&.include?("output")
-      metadata[:output_type] = :include
-      metadata[:output] = lines[1]&.split(":")&.last&.strip || ""
+      if line.include?("skip")
+        metadata[:skip] = true
+        metadata[:skip_reason] = line.split("skip").last&.strip || ""
+        return metadata
+      elsif line.include?("expect:")
+        result = line.split(":", 2).last&.strip
+        metadata[:result] = result if result && !result.empty?
+      elsif line.include?("expect-stdout-regex:")
+        metadata[:stdout_type] = :regex
+        metadata[:stdout] = line.split(":", 2).last&.strip || ""
+      elsif line.include?("expect-stdout:")
+        metadata[:stdout_type] = :literal
+        metadata[:stdout] = line.split(":", 2).last&.strip || ""
+      elsif line.include?("expect-stderr-regex:")
+        metadata[:stderr_type] = :regex
+        metadata[:stderr] = line.split(":", 2).last&.strip || ""
+      elsif line.include?("expect-stderr:")
+        metadata[:stderr_type] = :literal
+        metadata[:stderr] = line.split(":", 2).last&.strip || ""
+      end
     end
 
     metadata
@@ -101,23 +112,37 @@ class TestRunner
     metadata
   end
 
-  def matches_expectation?(metadata, stdout, status)
+  def matches_expectation?(metadata, stdout, stderr, status)
     expected_success = metadata[:result] == "success"
     actual_success = status.success?
 
     return false if expected_success != actual_success
 
-    return true if metadata[:output].empty?
+    # Check stdout if specified
+    if !metadata[:stdout].empty?
+      matches = check_output(stdout, metadata[:stdout], metadata[:stdout_type])
+      return false unless matches
+    end
 
-    if metadata[:output_type] == :regex
+    # Check stderr if specified
+    if !metadata[:stderr].empty?
+      matches = check_output(stderr, metadata[:stderr], metadata[:stderr_type])
+      return false unless matches
+    end
+
+    true
+  end
+
+  def check_output(actual, expected, match_type)
+    if match_type == :regex
       begin
-        stdout.strip =~ Regexp.new(metadata[:output])
+        actual.strip =~ Regexp.new(expected)
       rescue RegexpError => e
-        puts "#{YELLOW}Invalid regex pattern '#{metadata[:output]}': #{e.message}#{RESET}"
+        puts "#{YELLOW}Invalid regex pattern '#{expected}': #{e.message}#{RESET}"
         false
       end
     else
-      stdout.include?(metadata[:output])
+      actual.include?(expected)
     end
   end
 
@@ -126,14 +151,17 @@ class TestRunner
     puts "#{GREEN}✓ #{file}#{RESET}"
   end
 
-  def fail(file, metadata, stdout, status)
+  def fail(file, metadata, stdout, stderr, status)
     @failed += 1
     puts "#{RED}✗ #{file}#{RESET}"
 
     if @verbose
-      puts "  Expected: #{metadata[:result]} with output matching: #{metadata[:output]}"
+      puts "  Expected: #{metadata[:result]}"
+      puts "  Expected stdout: #{metadata[:stdout]}" unless metadata[:stdout].empty?
+      puts "  Expected stderr: #{metadata[:stderr]}" unless metadata[:stderr].empty?
       puts "  Actual: #{status&.success? ? 'success' : 'error'}"
-      puts "  Output: #{stdout.strip}"
+      puts "  Stdout: #{stdout.strip}"
+      puts "  Stderr: #{stderr.strip}"
       puts
     end
   end

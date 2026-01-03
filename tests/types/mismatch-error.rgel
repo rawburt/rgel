@@ -1,5 +1,5 @@
-# test: error
-# output: Type mismatch
+# expect: error
+# expect-stderr: Type mismatch
 
 def main() do
   var a: int = 1 + "hello"

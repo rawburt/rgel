@@ -1,5 +1,5 @@
-# test: error
-# output: expected Person(age: int, name: string) but got Person(name: string)
+# expect: error
+# expect-stderr: expected Person(age: int, name: string) but got Person(name: string)
 
 rec Person do
   age: int

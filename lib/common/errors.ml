@@ -69,3 +69,18 @@ let show_error = function
       Printf.sprintf "%s %s" (error_prefix loc) (show_syntax_error syntax_error)
   | Type_error (type_error, loc) ->
       Printf.sprintf "%s %s" (error_prefix loc) (show_type_error type_error)
+
+let error_log = ref []
+
+let log_syntax_error error loc =
+  error_log := Syntax_error (error, loc) :: !error_log
+
+let log_type_error error loc =
+  error_log := Type_error (error, loc) :: !error_log
+
+let is_error_log_empty () = List.is_empty !error_log
+
+let display_error_log () =
+  List.iter
+    (fun error -> Printf.eprintf "%s\n" (show_error error))
+    (List.rev !error_log)

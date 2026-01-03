@@ -8,10 +8,7 @@ type t = {
   return_type : Types.t option;
 }
 
-let errors = ref []
-
 let create () =
-  errors := [];
   {
     types = Types.primitives |> StringMap.of_list;
     locals = StringMap.empty;
@@ -20,8 +17,6 @@ let create () =
     return_type = None;
   }
 
-let error error loc = errors := Errors.Type_error (error, loc) :: !errors
-let get_errors () = !errors
 let find_type ctx name = StringMap.find_opt name ctx.types
 let find_methods ctx name = StringMap.find_opt name ctx.methods
 

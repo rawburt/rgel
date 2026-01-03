@@ -1,5 +1,5 @@
-# test: success
-# output-regex: true(\n)?{5}
+# expect: success
+# expect-stdout-regex: true(\n)?{5}
 
 extern def log(str) unit = "console.log"
 extern def str[T](T) str = "JSON.stringify"

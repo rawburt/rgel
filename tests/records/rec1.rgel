@@ -1,5 +1,4 @@
-# test: success
-# output:
+# expect: success
 
 def main() do
   # order of fields doesn't matter

@@ -1,5 +1,4 @@
-# test: success
-# output:
+# expect: success
 
 def main() do
   # overloaded for int and str
