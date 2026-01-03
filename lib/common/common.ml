@@ -1,1 +1,1 @@
-module StringMap = Map.Make(String)
+module StringMap = Map.Make (String)
