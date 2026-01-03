@@ -1,0 +1,13 @@
+# test: success
+# output:
+
+def main() do
+  # order of fields doesn't matter
+  var p: Point = Point(y: 1, x: 2)
+end
+
+# order of definition doesn't matter
+rec Point do
+  x: int
+  y: int
+end

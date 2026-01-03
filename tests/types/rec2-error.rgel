@@ -1,0 +1,17 @@
+# test: error
+# output: Type mismatch
+
+rec A do
+  x: int
+end
+
+rec B do
+  x: int
+end
+
+def main() do
+  var a: A = A(x: 1)
+  var b: B = B(x: 1)
+  # typing is nominal and not structural
+  var fail: bool = a == b
+end
