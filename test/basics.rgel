@@ -1,4 +1,7 @@
 # test: skip
+
+# this file is mostly a playground and not a real test, hence the skip label
+
 extern def log(str) unit = "console.log"
 extern def str[T](T) str = "JSON.stringify"
 
